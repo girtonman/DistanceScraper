@@ -32,8 +32,22 @@ namespace DistanceScraper
 				{
 					while (true)
 					{
+						if (Settings.Verbose)
+						{
+							Utils.WriteLine("Scraping Leaderboards");
+						}
 						await scraper.ScrapeLeaderboards();
+						
+						if (Settings.Verbose)
+						{
+							Utils.WriteLine("Scraping Official Leaderboards");
+						}
 						await scraper.ScrapeOfficialLeaderboardEntries();
+						
+						if (Settings.Verbose)
+						{
+							Utils.WriteLine("Scraping Unofficial Leaderboards");
+						}
 						await scraper.ScrapeUnofficialLeaderboardEntries();
 					}
 				}

@@ -45,7 +45,6 @@ namespace DistanceScraper
 		// Scrapes the leaderboard entries for the official maps
 		public async Task ScrapeOfficialLeaderboardEntries()
 		{
-			//Utils.WriteLine("Retrieving official sprint leaderboards from DB");
 			var leaderboards = await LeaderboardDAL.GetOfficialSprintLeaderboards();
 			await ScrapeLeaderboardEntries(leaderboards);
 		}
@@ -86,7 +85,7 @@ namespace DistanceScraper
 				await PlayerDAL.AddPlayersFromEntries(newEntries, Handlers, this);
 				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, Handlers, this);
 				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, Handlers, this);
-				await LeaderboardEntryDAL.UpdateLeaderboardEntries(existingEntries, entriesToUpdate);
+				await LeaderboardEntryDAL.UpdateLeaderboardEntries(leaderboard, existingEntries, entriesToUpdate);
 			}
 		}
 	}

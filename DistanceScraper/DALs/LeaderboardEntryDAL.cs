@@ -2,6 +2,7 @@
 using SteamKit2;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -49,22 +50,9 @@ namespace DistanceScraper.DALs
 				return;
 			}
 
-			// Fill the user cache if necessary
-			var steamIDs = new List<SteamID>();
-			foreach (var newEntry in newEntries)
+			if (Settings.Verbose)
 			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				if (string.IsNullOrEmpty(name))
-				{
-					steamIDs.Add(newEntry.SteamID);
-				}
-			}
-			await scraper.RequestUserInfo(steamIDs);
-
-			foreach (var newEntry in newEntries)
-			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				Utils.WriteLine($"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, handlers, scraper);
 			}
 
 			var sqlSB = new StringBuilder("INSERT INTO LeaderboardEntries (LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC, UpdatedTimeUTC) VALUES");
@@ -77,19 +65,27 @@ namespace DistanceScraper.DALs
 			var command = new MySqlCommand(sql, Connection);
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
+			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
 		}
 
-		public async Task UpdateLeaderboardEntries(Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries)
+		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries)
 		{
-			Connection.Open();
+			if (existingEntries.Count == 0 || updatedEntries.Count == 0)
+			{
+				return;
+			}
+
 			foreach (var updatedEntry in updatedEntries)
 			{
+				Connection.Open();
 				var existingEntry = existingEntries[updatedEntry.SteamID.ConvertToUInt64()];
 				var sql = $"UPDATE LeaderboardEntries SET Milliseconds = {updatedEntry.Score}, UpdatedTimeUTC = {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} WHERE ID = {existingEntry.ID}";
 				var command = new MySqlCommand(sql, Connection);
 				await command.ExecuteNonQueryAsync();
+				Connection.Close();
 			}
-			Connection.Close();
+
+			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
 		}
 	}
 }
