@@ -77,19 +77,27 @@ namespace DistanceScraper.DALs
 			var command = new MySqlCommand(sql, Connection);
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
+			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
 		}
 
-		public async Task UpdateLeaderboardEntries(Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries)
+		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries)
 		{
-			Connection.Open();
+			if (existingEntries.Count == 0 || updatedEntries.Count == 0)
+			{
+				return;
+			}
+
 			foreach (var updatedEntry in updatedEntries)
 			{
+				Connection.Open();
 				var existingEntry = existingEntries[updatedEntry.SteamID.ConvertToUInt64()];
 				var sql = $"UPDATE LeaderboardEntries SET Milliseconds = {updatedEntry.Score}, UpdatedTimeUTC = {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} WHERE ID = {existingEntry.ID}";
 				var command = new MySqlCommand(sql, Connection);
 				await command.ExecuteNonQueryAsync();
+				Connection.Close();
 			}
-			Connection.Close();
+
+			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
 		}
 	}
 }
