@@ -56,6 +56,8 @@ namespace DistanceScraper.DALs
 			var historyInsertsCommand = new MySqlCommand(historyInsertsSQL, Connection);
 			await historyInsertsCommand.ExecuteNonQueryAsync();
 			Connection.Close();
+
+			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Saved leaderboard entry history for {updatedEntries.Count} improvements");
 		}
 	}
 }

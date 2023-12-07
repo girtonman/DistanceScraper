@@ -45,7 +45,6 @@ namespace DistanceScraper
 		// Scrapes the leaderboard entries for the official maps
 		public async Task ScrapeOfficialLeaderboardEntries()
 		{
-			//Utils.WriteLine("Retrieving official sprint leaderboards from DB");
 			var leaderboards = await LeaderboardDAL.GetOfficialSprintLeaderboards();
 			await ScrapeLeaderboardEntries(leaderboards);
 		}
