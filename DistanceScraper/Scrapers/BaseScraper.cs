@@ -19,8 +19,7 @@ namespace DistanceScraper
 		private CallbackManager Manager;
 		private bool IsReady;
 
-		private readonly Queue<SteamID> UsersToRequest = new Queue<SteamID>();
-		private SteamID RequestedSteamID;
+		private readonly List<SteamID> RequestedSteamIDs = new List<SteamID>();
 		private TaskCompletionSource<bool> IsRequestingUsers;
 
 		public BaseScraper(uint appID)
@@ -184,36 +183,49 @@ namespace DistanceScraper
 				return;
 			}
 
+			Utils.WriteLine($"Requesting names for {steamIDs.Count} players");
 			IsRequestingUsers = new TaskCompletionSource<bool>();
-			steamIDs.ForEach(x => UsersToRequest.Enqueue(x));
-			var next = UsersToRequest.Dequeue();
-			Utils.WriteLine($"Requesting name for {next}");
-			RequestedSteamID = next;
-			Handlers.Friends.RequestFriendInfo(next, EClientPersonaStateFlag.PlayerName);
+			RequestedSteamIDs.AddRange(steamIDs);
+			foreach(var steamID in steamIDs)
+			{
+				if (Settings.Verbose)
+				{
+					Utils.WriteLine($"Requesting name for {steamID}");
+				}
+			}
+			Handlers.Friends.RequestFriendInfo(steamIDs, EClientPersonaStateFlag.PlayerName);
 
 			await IsRequestingUsers.Task;
 		}
 
 		public void OnRequestUserInfo(PersonaStateCallback callback)
 		{
-			// Skip callbacks from stuff we don't care about
-			if(callback.FriendID != RequestedSteamID)
+			if (Settings.Verbose)
 			{
+				Utils.WriteLine($"RequestedSteamIDs: {RequestedSteamIDs.Count}");
+			}
+			
+			// Skip callbacks from stuff we don't care about
+			if(!RequestedSteamIDs.Contains(callback.FriendID))
+			{
+				if (Settings.Verbose)
+				{
+					Utils.WriteLine($"Unexpected SteamID: {callback.FriendID}");
+				}
 				return;
 			}
-
-			Utils.WriteLine($"Name found for      {callback.FriendID}");
-			if (UsersToRequest.Count == 0)
+			RequestedSteamIDs.Remove(callback.FriendID);
+			if (Settings.Verbose)
 			{
-				//Utils.WriteLine("Queue empty");
-				IsRequestingUsers.SetResult(true);
+				Utils.WriteLine($"Name found for      {callback.FriendID}");
 			}
-			else
+			if (RequestedSteamIDs.Count == 0 && !IsRequestingUsers.Task.IsCompleted)
 			{
-				var next = UsersToRequest.Dequeue();
-				Utils.WriteLine($"Requesting name for {next}");
-				RequestedSteamID = next;
-				Handlers.Friends.RequestFriendInfo(next, EClientPersonaStateFlag.PlayerName);
+				if (Settings.Verbose)
+				{
+					Utils.WriteLine("Name lookup batch completed");
+				}
+				IsRequestingUsers.SetResult(true);
 			}
 		}
 	}
