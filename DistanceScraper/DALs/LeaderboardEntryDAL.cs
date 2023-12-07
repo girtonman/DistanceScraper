@@ -2,6 +2,7 @@
 using SteamKit2;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -49,22 +50,9 @@ namespace DistanceScraper.DALs
 				return;
 			}
 
-			// Fill the user cache if necessary
-			var steamIDs = new List<SteamID>();
-			foreach (var newEntry in newEntries)
+			if (Settings.Verbose)
 			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				if (string.IsNullOrEmpty(name))
-				{
-					steamIDs.Add(newEntry.SteamID);
-				}
-			}
-			await scraper.RequestUserInfo(steamIDs);
-
-			foreach (var newEntry in newEntries)
-			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				Utils.WriteLine($"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, handlers, scraper);
 			}
 
 			var sqlSB = new StringBuilder("INSERT INTO LeaderboardEntries (LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC, UpdatedTimeUTC) VALUES");
