@@ -1,12 +1,10 @@
 ﻿using SteamKit2;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using static SteamKit2.SteamClient;
-using static SteamKit2.SteamFriends;
 using static SteamKit2.SteamUser;
 
 namespace DistanceScraper
@@ -18,9 +16,6 @@ namespace DistanceScraper
 		private SteamClient Client;
 		private CallbackManager Manager;
 		private bool IsReady;
-
-		private readonly List<SteamID> RequestedSteamIDs = new List<SteamID>();
-		private TaskCompletionSource<bool> IsRequestingUsers;
 
 		public BaseScraper(uint appID)
 		{
@@ -36,15 +31,12 @@ namespace DistanceScraper
 			{
 				UserStats = Client.GetHandler<SteamUserStats>(),
 				User = Client.GetHandler<SteamUser>(),
-				Friends = Client.GetHandler<SteamFriends>(),
 			};
 
 			Manager.Subscribe<ConnectedCallback>(OnConnected);
 			Manager.Subscribe<DisconnectedCallback>(OnDisconnected);
 			Manager.Subscribe<LoggedOnCallback>(OnLoggedOn);
 			Manager.Subscribe<LoggedOffCallback>(OnLoggedOff);
-			Manager.Subscribe<UpdateMachineAuthCallback>(OnMachineAuth);
-			Manager.Subscribe<PersonaStateCallback>(OnRequestUserInfo);
 
 			Client.Connect();
 			new Thread(() => {
@@ -63,7 +55,7 @@ namespace DistanceScraper
 
 		private void OnConnected(ConnectedCallback callback)
 		{
-			Utils.WriteLine($"Connected to Steam! Logging in '{Settings.Username}'...");
+			Utils.WriteLine("Init", $"Connected to Steam! Logging in '{Settings.Username}'...");
 
 			LogOn();
 		}
@@ -73,7 +65,7 @@ namespace DistanceScraper
 			// after recieving an AccountLogonDenied, we'll be disconnected from steam
 			// so after we read an authcode from the user, we need to reconnect to begin the logon flow again
 
-			Utils.WriteLine("Disconnected from Steam...");
+			Utils.WriteLine("Init", "Disconnected from Steam...");
 
 			Thread.Sleep(TimeSpan.FromSeconds(5));
 
@@ -101,7 +93,6 @@ namespace DistanceScraper
 				Password = Settings.Password,
 				AuthCode = null,
 				TwoFactorCode = null,
-				SentryFileHash = GetSentryHash(),
 			});
 		}
 
@@ -109,124 +100,22 @@ namespace DistanceScraper
 		{
 			if (callback.Result != EResult.OK)
 			{
-				Utils.WriteLine($"Unable to logon to Steam: {callback.Result} / {callback.ExtendedResult}");
+				Utils.WriteLine("Init", $"Unable to logon to Steam: {callback.Result} / {callback.ExtendedResult}");
 				Thread.Sleep(TimeSpan.FromSeconds(60));
 				LogOn();
 			}
 			else
 			{
 				IsReady = true;
-				Utils.WriteLine("Successfully logged on!");
+				Utils.WriteLine("Init", "Successfully logged on!");
 			}
 		}
 
 		private void OnLoggedOff(LoggedOffCallback callback)
 		{
 			IsReady = false;
-			Utils.WriteLine($"Logged off of Steam: {callback.Result}");
+			Utils.WriteLine("Init", $"Logged off of Steam: {callback.Result}");
 			LogOn();
-		}
-
-		private void OnMachineAuth(UpdateMachineAuthCallback callback)
-		{
-			Utils.WriteLine("Updating sentryfile...");
-
-			// write out our sentry file
-			// ideally we'd want to write to the filename specified in the callback
-			// but then this sample would require more code to find the correct sentry file to read during logon
-			// for the sake of simplicity, we'll just use "sentry.bin"
-
-			int fileSize;
-			byte[] sentryHash;
-			using (var fs = File.Open("sentry.bin", FileMode.OpenOrCreate, FileAccess.ReadWrite))
-			{
-				fs.Seek(callback.Offset, SeekOrigin.Begin);
-				fs.Write(callback.Data, 0, callback.BytesToWrite);
-				fileSize = (int) fs.Length;
-
-				fs.Seek(0, SeekOrigin.Begin);
-				using (var sha = SHA1.Create())
-				{
-					sentryHash = sha.ComputeHash(fs);
-				}
-			}
-
-			// inform the steam servers that we're accepting this sentry file
-			Handlers.User.SendMachineAuthResponse(new MachineAuthDetails
-			{
-				JobID = callback.JobID,
-				FileName = callback.FileName,
-				BytesWritten = callback.BytesToWrite,
-				FileSize = fileSize,
-				Offset = callback.Offset,
-				Result = EResult.OK,
-				LastError = 0,
-				OneTimePassword = callback.OneTimePassword,
-				SentryFileHash = sentryHash,
-			});
-
-			Utils.WriteLine("Sentryfile updated!");
-		}
-
-		public async Task RequestUserInfo(SteamID steamID)
-		{
-			if (Handlers.Friends.GetFriendPersonaName(steamID) == null)
-			{
-				await RequestUserInfo(new List<SteamID>() { steamID });
-			}
-		}
-
-		public async Task RequestUserInfo(List<SteamID> steamIDs)
-		{
-			if(steamIDs.Count == 0)
-			{
-				return;
-			}
-
-			Utils.WriteLine($"Requesting names for {steamIDs.Count} players");
-			IsRequestingUsers = new TaskCompletionSource<bool>();
-			RequestedSteamIDs.AddRange(steamIDs);
-			foreach(var steamID in steamIDs)
-			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine($"Requesting name for {steamID}");
-				}
-			}
-			Handlers.Friends.RequestFriendInfo(steamIDs, EClientPersonaStateFlag.PlayerName);
-
-			await IsRequestingUsers.Task;
-		}
-
-		public void OnRequestUserInfo(PersonaStateCallback callback)
-		{
-			if (Settings.Verbose)
-			{
-				Utils.WriteLine($"RequestedSteamIDs: {RequestedSteamIDs.Count}");
-			}
-			
-			// Skip callbacks from stuff we don't care about
-			if(!RequestedSteamIDs.Contains(callback.FriendID))
-			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine($"Unexpected SteamID: {callback.FriendID}");
-				}
-				return;
-			}
-			RequestedSteamIDs.Remove(callback.FriendID);
-			if (Settings.Verbose)
-			{
-				Utils.WriteLine($"Name found for      {callback.FriendID}");
-			}
-			if (RequestedSteamIDs.Count == 0 && !IsRequestingUsers.Task.IsCompleted)
-			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine("Name lookup batch completed");
-				}
-				IsRequestingUsers.SetResult(true);
-			}
 		}
 	}
 }

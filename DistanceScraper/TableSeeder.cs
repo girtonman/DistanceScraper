@@ -6,20 +6,41 @@ namespace DistanceScraper
 {
 	public class TableSeeder
 	{
-		public TableSeeder() {}
+		public TableSeeder() { }
 
-		public static async Task SeedOfficialSprintLeaderboardsAsync()
+		public static async void SeedOfficialLeaderboards()
 		{
-			Utils.WriteLine($"Checking for changes in official sprint leaderboards list");
+			await SeedSprintLeaderboards();
+			//await SeedStuntLeaderboards();
+			await SeedChallengeLeaderboards();
+		}
+
+		private static async Task SeedSprintLeaderboards()
+		{
+			Utils.WriteLine("DB Seed", $"Checking for changes in official sprint leaderboards list");
 
 			var dal = new LeaderboardDAL();
-			var existingLeaderboards = await dal.GetAllLeaderboards();
-			var newLeaderboards = OfficialLeaderboards.SprintLevelNames
-				.Where(x => !existingLeaderboards.Any(y => y.LevelName == x))
+			var existingLeaderboards = await dal.GetOfficialLeaderboards();
+			var newSprintLeaderboards = OfficialLeaderboards.SprintLevels
+				.Where(x => !existingLeaderboards.Any(y => y.LevelName == x.LevelName))
 				.ToList();
 
-			Utils.WriteLine($"{newLeaderboards.Count} new leaderboards found");
-			await dal.AddLeaderboards(newLeaderboards);
+			Utils.WriteLine("DB Seed", $"{newSprintLeaderboards.Count} new official sprint leaderboards found");
+			await dal.AddOfficialLeaderboards(newSprintLeaderboards);
+		}
+
+		public static async Task SeedChallengeLeaderboards()
+		{
+			Utils.WriteLine("DB Seed", $"Checking for changes in official challenge leaderboards list");
+
+			var dal = new LeaderboardDAL();
+			var existingLeaderboards = await dal.GetOfficialLeaderboards();
+			var newSprintLeaderboards = OfficialLeaderboards.ChallengeLevels
+				.Where(x => !existingLeaderboards.Any(y => y.LevelName == x.LevelName))
+				.ToList();
+
+			Utils.WriteLine("DB Seed", $"{newSprintLeaderboards.Count} new official challenge leaderboards found");
+			await dal.AddOfficialLeaderboards(newSprintLeaderboards);
 		}
 	}
 }

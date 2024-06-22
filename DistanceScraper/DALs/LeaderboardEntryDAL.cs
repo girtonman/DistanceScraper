@@ -2,7 +2,6 @@
 using SteamKit2;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,15 +9,11 @@ namespace DistanceScraper.DALs
 {
 	public class LeaderboardEntryDAL
 	{
-		private MySqlConnection Connection { get; set; }
-
-		public LeaderboardEntryDAL()
-		{
-			Connection = new MySqlConnection(Settings.ConnectionString);
-		}
+		public LeaderboardEntryDAL() { }
 
 		public async Task<Dictionary<ulong, LeaderboardEntry>> GetLeaderboardEntries(uint leaderboardID)
 		{
+			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 			var sql = $"SELECT ID, LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC FROM LeaderboardEntries WHERE LeaderBoardID = {leaderboardID}";
 			var command = new MySqlCommand(sql, Connection);
@@ -43,7 +38,7 @@ namespace DistanceScraper.DALs
 			return leaderboardEntries;
 		}
 
-		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper)
+		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
 		{
 			if (newEntries.Count == 0)
 			{
@@ -52,7 +47,7 @@ namespace DistanceScraper.DALs
 
 			if (Settings.Verbose)
 			{
-				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, handlers, scraper);
+				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, workerNumber);
 			}
 
 			var sqlSB = new StringBuilder("INSERT INTO LeaderboardEntries (LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC, UpdatedTimeUTC) VALUES");
@@ -61,14 +56,15 @@ namespace DistanceScraper.DALs
 			sqlSB.Append("ON DUPLICATE KEY UPDATE ID = ID");
 			var sql = sqlSB.ToString();
 
+			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 			var command = new MySqlCommand(sql, Connection);
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
-			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
+			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
 		}
 
-		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries)
+		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, int workerNumber)
 		{
 			if (existingEntries.Count == 0 || updatedEntries.Count == 0)
 			{
@@ -77,6 +73,7 @@ namespace DistanceScraper.DALs
 
 			foreach (var updatedEntry in updatedEntries)
 			{
+				var Connection = new MySqlConnection(Settings.ConnectionString);
 				Connection.Open();
 				var existingEntry = existingEntries[updatedEntry.SteamID.ConvertToUInt64()];
 				var sql = $"UPDATE LeaderboardEntries SET Milliseconds = {updatedEntry.Score}, UpdatedTimeUTC = {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} WHERE ID = {existingEntry.ID}";
@@ -85,7 +82,7 @@ namespace DistanceScraper.DALs
 				Connection.Close();
 			}
 
-			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
+			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
 		}
 	}
 }
