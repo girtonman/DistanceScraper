@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using static SteamKit2.SteamClient;
@@ -43,7 +42,6 @@ namespace DistanceScraper
 			Manager.Subscribe<DisconnectedCallback>(OnDisconnected);
 			Manager.Subscribe<LoggedOnCallback>(OnLoggedOn);
 			Manager.Subscribe<LoggedOffCallback>(OnLoggedOff);
-			Manager.Subscribe<UpdateMachineAuthCallback>(OnMachineAuth);
 			Manager.Subscribe<PersonaStateCallback>(OnRequestUserInfo);
 
 			Client.Connect();
@@ -101,7 +99,6 @@ namespace DistanceScraper
 				Password = Settings.Password,
 				AuthCode = null,
 				TwoFactorCode = null,
-				SentryFileHash = GetSentryHash(),
 			});
 		}
 
@@ -127,79 +124,40 @@ namespace DistanceScraper
 			LogOn();
 		}
 
-		// TODO: Remove if not used
-		private void OnMachineAuth(UpdateMachineAuthCallback callback)
-		{
-			Utils.WriteLine("Init", "Updating sentryfile...");
-
-			// write out our sentry file
-			// ideally we'd want to write to the filename specified in the callback
-			// but then this sample would require more code to find the correct sentry file to read during logon
-			// for the sake of simplicity, we'll just use "sentry.bin"
-
-			int fileSize;
-			byte[] sentryHash;
-			using (var fs = File.Open("sentry.bin", FileMode.OpenOrCreate, FileAccess.ReadWrite))
-			{
-				fs.Seek(callback.Offset, SeekOrigin.Begin);
-				fs.Write(callback.Data, 0, callback.BytesToWrite);
-				fileSize = (int) fs.Length;
-
-				fs.Seek(0, SeekOrigin.Begin);
-				using (var sha = SHA1.Create())
-				{
-					sentryHash = sha.ComputeHash(fs);
-				}
-			}
-
-			// inform the steam servers that we're accepting this sentry file
-			Handlers.User.SendMachineAuthResponse(new MachineAuthDetails
-			{
-				JobID = callback.JobID,
-				FileName = callback.FileName,
-				BytesWritten = callback.BytesToWrite,
-				FileSize = fileSize,
-				Offset = callback.Offset,
-				Result = EResult.OK,
-				LastError = 0,
-				OneTimePassword = callback.OneTimePassword,
-				SentryFileHash = sentryHash,
-			});
-
-			Utils.WriteLine("Init", "Sentryfile updated!");
-		}
-
 		public async Task RequestUserInfo(List<SteamID> steamIDs, int workerNumber)
 		{
 			if(steamIDs.Count == 0)
 			{
 				return;
 			}
-
 			Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting names for {steamIDs.Count} players");
-			IsRequestingUsers = new TaskCompletionSource<bool>();
-			RequestedSteamIDs.AddRange(steamIDs);
+
+			// Logic for multi-threaded awaiting of callbacks
+			IsRequestingUsers[workerNumber] = new TaskCompletionSource<bool>();
 			foreach(var steamID in steamIDs)
 			{
+				RequestedSteamIDs[steamID] = workerNumber;
 				if (Settings.Verbose)
 				{
 					Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting name for {steamID}");
 				}
 			}
+			
 			Handlers.Friends.RequestFriendInfo(steamIDs, EClientPersonaStateFlag.PlayerName);
-
-			await IsRequestingUsers.Task;
+			IsRequestingUsers[workerNumber].TrySetResult()
+			await IsRequestingUsers[workerNumber].Task;
 		}
 
 		public void OnRequestUserInfo(PersonaStateCallback callback)
 		{
+			callback.Job
 			if (Settings.Verbose)
 			{
 				Utils.WriteLine("Steam", $"RequestedSteamIDs: {RequestedSteamIDs.Count}");
 			}
 			
 			// Skip callbacks from stuff we don't care about
-			if(!RequestedSteamIDs.Contains(callback.FriendID))
+			if(!RequestedSteamIDs.ContainsKey(callback.FriendID))
 			{
 				if (Settings.Verbose)
 				{
