@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using DistanceTracker.DALs;
 using SteamKit2;
 
 namespace DistanceScraper
@@ -20,7 +20,7 @@ namespace DistanceScraper
 		public static void WriteLine(string source, string message)
 		{
 			var elapsed = Timer.Elapsed;
-			Console.WriteLine($"[{(int) elapsed.TotalMinutes}:{elapsed.Seconds:00}][{source}]: {message}");
+			Console.WriteLine($"[{(int)elapsed.TotalMinutes}:{elapsed.Seconds:00}][{source}]: {message}");
 		}
 
 		public static void ClearCurrentConsoleLine()
@@ -32,14 +32,16 @@ namespace DistanceScraper
 			Console.SetCursorPosition(0, currentLineCursor);
 		}
 
-		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
+		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
 		{
+			var steamDAL = new SteamDAL();
+
 			// Look for steamids that need caching
-			var steamIDs = new List<SteamID>();
+			var steamIDs = new List<ulong>();
 			foreach (var newEntry in newEntries)
 			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				if (string.IsNullOrEmpty(name))
+				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var player);
+				if (player == null)
 				{
 					steamIDs.Add(newEntry.SteamID);
 				}
@@ -49,14 +51,14 @@ namespace DistanceScraper
 			var steamIDBatches = steamIDs.Chunk(100);
 			foreach (var steamIDBatch in steamIDBatches)
 			{
-				await scraper.RequestUserInfo(steamIDBatch.ToList(), workerNumber);
+				await steamDAL.GetPlayerSummaries(steamIDBatch.ToList(), workerNumber);
 			}
 
 			// Log information about the new time and who set it
 			foreach (var newEntry in newEntries)
 			{
-				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				WriteLine($"Worker #{workerNumber+1}", $"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var name);
+				WriteLine($"Worker #{workerNumber + 1}", $"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
 			}
 		}
 	}

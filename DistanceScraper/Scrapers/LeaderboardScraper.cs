@@ -95,7 +95,7 @@ namespace DistanceScraper
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"===================Processing {leaderboard.LevelName}===================");
+					Utils.WriteLine($"Worker #{workerNumber+1}", $"===================Processing #{leaderboard.ID}: {leaderboard.LevelName}===================");
 				}
 
 				if (leaderboard.SteamLeaderboardID == null)

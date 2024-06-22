@@ -47,7 +47,7 @@ namespace DistanceScraper.DALs
 
 			if (Settings.Verbose)
 			{
-				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, handlers, scraper, workerNumber);
+				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, workerNumber);
 			}
 
 			var sqlSB = new StringBuilder("INSERT INTO LeaderboardEntries (LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC, UpdatedTimeUTC) VALUES");

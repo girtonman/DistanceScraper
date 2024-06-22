@@ -1,11 +1,10 @@
 ﻿using SteamKit2;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using static SteamKit2.SteamClient;
-using static SteamKit2.SteamFriends;
 using static SteamKit2.SteamUser;
 
 namespace DistanceScraper
@@ -17,9 +16,6 @@ namespace DistanceScraper
 		private SteamClient Client;
 		private CallbackManager Manager;
 		private bool IsReady;
-
-		private readonly List<SteamID> RequestedSteamIDs = new List<SteamID>();
-		private TaskCompletionSource<bool> IsRequestingUsers;
 
 		public BaseScraper(uint appID)
 		{
@@ -35,14 +31,12 @@ namespace DistanceScraper
 			{
 				UserStats = Client.GetHandler<SteamUserStats>(),
 				User = Client.GetHandler<SteamUser>(),
-				Friends = Client.GetHandler<SteamFriends>(),
 			};
 
 			Manager.Subscribe<ConnectedCallback>(OnConnected);
 			Manager.Subscribe<DisconnectedCallback>(OnDisconnected);
 			Manager.Subscribe<LoggedOnCallback>(OnLoggedOn);
 			Manager.Subscribe<LoggedOffCallback>(OnLoggedOff);
-			Manager.Subscribe<PersonaStateCallback>(OnRequestUserInfo);
 
 			Client.Connect();
 			new Thread(() => {
@@ -122,62 +116,6 @@ namespace DistanceScraper
 			IsReady = false;
 			Utils.WriteLine("Init", $"Logged off of Steam: {callback.Result}");
 			LogOn();
-		}
-
-		public async Task RequestUserInfo(List<SteamID> steamIDs, int workerNumber)
-		{
-			if(steamIDs.Count == 0)
-			{
-				return;
-			}
-			Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting names for {steamIDs.Count} players");
-
-			// Logic for multi-threaded awaiting of callbacks
-			IsRequestingUsers[workerNumber] = new TaskCompletionSource<bool>();
-			foreach(var steamID in steamIDs)
-			{
-				RequestedSteamIDs[steamID] = workerNumber;
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting name for {steamID}");
-				}
-			}
-			
-			Handlers.Friends.RequestFriendInfo(steamIDs, EClientPersonaStateFlag.PlayerName);
-			IsRequestingUsers[workerNumber].TrySetResult()
-			await IsRequestingUsers[workerNumber].Task;
-		}
-
-		public void OnRequestUserInfo(PersonaStateCallback callback)
-		{
-			callback.Job
-			if (Settings.Verbose)
-			{
-				Utils.WriteLine("Steam", $"RequestedSteamIDs: {RequestedSteamIDs.Count}");
-			}
-			
-			// Skip callbacks from stuff we don't care about
-			if(!RequestedSteamIDs.ContainsKey(callback.FriendID))
-			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine("Steam", $"Unexpected SteamID: {callback.FriendID}");
-				}
-				return;
-			}
-			RequestedSteamIDs.Remove(callback.FriendID);
-			if (Settings.Verbose)
-			{
-				Utils.WriteLine("Steam", $"Name found for      {callback.FriendID}");
-			}
-			if (RequestedSteamIDs.Count == 0 && !IsRequestingUsers.Task.IsCompleted)
-			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine("Steam", "Name lookup batch completed");
-				}
-				IsRequestingUsers.SetResult(true);
-			}
 		}
 	}
 }

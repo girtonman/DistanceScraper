@@ -90,10 +90,10 @@ namespace DistanceTracker.DALs
 				// Collect level information for this batch
 				// Breaking this up because ToObject<List<PublishedFileDetail>> was misbehaving
 				var batch = new List<PublishedFileDetail>();
-				foreach(var jToken in json["response"]["publishedfiledetails"])
+				foreach (var jToken in json["response"]["publishedfiledetails"])
 				{
 					var level = jToken.ToObject<PublishedFileDetail>();
-					
+
 					if (mostRecentFileID != 0 && mostRecentFileID == level.PublishedFileID)
 					{
 						keepScanning = false;
@@ -108,6 +108,50 @@ namespace DistanceTracker.DALs
 				Utils.WriteLine("Workshop", $"Found {levelList.Count} new workshop levels");
 			}
 			return levelList;
+		}
+
+		public async Task<List<PlayerSummary>> GetPlayerSummaries(List<ulong> steamIDs, int workerNumber)
+		{
+			// Setup client and reusable part of the uri
+			var client = new HttpClient
+			{
+				BaseAddress = new Uri("https://api.steampowered.com")
+			};
+			var content = new Dictionary<string, string>
+			{
+				{"key", SteamAPIKey},
+				{"steamids", string.Join(",", steamIDs)},
+			};
+			var endpoint = "/ISteamUser/GetPlayerSummaries/v2/?";
+			var uri = endpoint + string.Join("&", content.Select(x => x.Key + "=" + x.Value));
+
+			var players = new List<PlayerSummary>();
+
+			// Query the API for player summaries
+			var response = await client.GetAsync(uri);
+			var responseMessage = await response.Content.ReadAsStringAsync();
+
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new Exception($"Aborting player summary retrieval: {responseMessage}");
+			}
+
+			// Attempt to parse the response into a json object
+			JObject json = null;
+			json = JObject.Parse(responseMessage);
+
+			// Collect player summaries
+			// Breaking this up because ToObject<List<PlayerSummary>> was misbehaving
+			var batch = new List<PlayerSummary>();
+			foreach (var jToken in json["response"]["players"])
+			{
+				var player = jToken.ToObject<PlayerSummary>();
+				Caches.PlayerCache[player.SteamID] = player;
+				players.Add(player);
+			}
+
+			Utils.WriteLine($"Worker #{workerNumber + 1}", $"Found {players.Count} player summaries");
+			return players;
 		}
 	}
 }

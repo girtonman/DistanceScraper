@@ -1,4 +1,5 @@
-﻿using MySqlConnector;
+﻿using DistanceTracker.DALs;
+using MySqlConnector;
 using SteamKit2;
 using System;
 using System.Collections.Generic;
@@ -45,13 +46,13 @@ namespace DistanceScraper.DALs
 
 			// Get players from the DB and determine which SteamIDs will need to be added
 			var existingLookupBatches = newEntries.Chunk(100);
-			var playersToAdd = new List<SteamID>();
+			var playersToAdd = new List<ulong>();
 			foreach (var batch in existingLookupBatches)
 			{
-				var existingUsers = await GetPlayers(batch.Select(x => x.SteamID.ConvertToUInt64()).ToList());
+				var existingUsers = await GetPlayers(batch.Select(x => (ulong)x.SteamID).ToList());
 				foreach (var entry in batch)
 				{
-					if (!existingUsers.ContainsKey(entry.SteamID.ConvertToUInt64()))
+					if (!existingUsers.ContainsKey(entry.SteamID))
 					{
 						playersToAdd.Add(entry.SteamID);
 					}
@@ -66,9 +67,10 @@ namespace DistanceScraper.DALs
 
 			// Get steam names and cache them
 			var newPlayerBatches = playersToAdd.Chunk(100);
+			var steamDAL = new SteamDAL();
 			foreach (var batch in newPlayerBatches)
 			{
-				await scraper.RequestUserInfo(batch.ToList(), workerNumber);
+				await steamDAL.GetPlayerSummaries(batch.ToList(), workerNumber);
 			}
 
 			// Add new players to the database
@@ -79,10 +81,11 @@ namespace DistanceScraper.DALs
 			var i = 0;
 			foreach (var newPlayer in playersToAdd)
 			{
-				sqlSB.Append($"({newPlayer.ConvertToUInt64()},@userName{i},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
+				sqlSB.Append($"({newPlayer},@userName{i},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
 				i++;
 			}
 			sqlSB.Remove(sqlSB.Length - 1, 1); // Remove last comma
+			sqlSB.Append(" ON DUPLICATE KEY UPDATE ID = ID");
 
 			// Create the sql query
 			var command = new MySqlCommand(sqlSB.ToString(), Connection);
@@ -91,12 +94,13 @@ namespace DistanceScraper.DALs
 			i = 0;
 			foreach (var newPlayer in playersToAdd)
 			{
-				var name = handlers.Friends.GetFriendPersonaName(newPlayer);
+				Caches.PlayerCache.TryGetValue(newPlayer, out var player);
+				player ??= PlayerSummary.UnknownPlayer;
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer.ConvertToUInt64()}: {name} to the players table");
+					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer}: {player.Name} to the players table");
 				}
-				command.Parameters.AddWithValue($"@userName{i}", name);
+				command.Parameters.AddWithValue($"@userName{i}", player.Name);
 				i++;
 			}
 
