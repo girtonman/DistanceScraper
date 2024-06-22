@@ -63,7 +63,7 @@ namespace DistanceScraper
 
 		private void OnConnected(ConnectedCallback callback)
 		{
-			Utils.WriteLine($"Connected to Steam! Logging in '{Settings.Username}'...");
+			Utils.WriteLine("Init", $"Connected to Steam! Logging in '{Settings.Username}'...");
 
 			LogOn();
 		}
@@ -73,7 +73,7 @@ namespace DistanceScraper
 			// after recieving an AccountLogonDenied, we'll be disconnected from steam
 			// so after we read an authcode from the user, we need to reconnect to begin the logon flow again
 
-			Utils.WriteLine("Disconnected from Steam...");
+			Utils.WriteLine("Init", "Disconnected from Steam...");
 
 			Thread.Sleep(TimeSpan.FromSeconds(5));
 
@@ -109,27 +109,28 @@ namespace DistanceScraper
 		{
 			if (callback.Result != EResult.OK)
 			{
-				Utils.WriteLine($"Unable to logon to Steam: {callback.Result} / {callback.ExtendedResult}");
+				Utils.WriteLine("Init", $"Unable to logon to Steam: {callback.Result} / {callback.ExtendedResult}");
 				Thread.Sleep(TimeSpan.FromSeconds(60));
 				LogOn();
 			}
 			else
 			{
 				IsReady = true;
-				Utils.WriteLine("Successfully logged on!");
+				Utils.WriteLine("Init", "Successfully logged on!");
 			}
 		}
 
 		private void OnLoggedOff(LoggedOffCallback callback)
 		{
 			IsReady = false;
-			Utils.WriteLine($"Logged off of Steam: {callback.Result}");
+			Utils.WriteLine("Init", $"Logged off of Steam: {callback.Result}");
 			LogOn();
 		}
 
+		// TODO: Remove if not used
 		private void OnMachineAuth(UpdateMachineAuthCallback callback)
 		{
-			Utils.WriteLine("Updating sentryfile...");
+			Utils.WriteLine("Init", "Updating sentryfile...");
 
 			// write out our sentry file
 			// ideally we'd want to write to the filename specified in the callback
@@ -165,32 +166,24 @@ namespace DistanceScraper
 				SentryFileHash = sentryHash,
 			});
 
-			Utils.WriteLine("Sentryfile updated!");
+			Utils.WriteLine("Init", "Sentryfile updated!");
 		}
 
-		public async Task RequestUserInfo(SteamID steamID)
-		{
-			if (Handlers.Friends.GetFriendPersonaName(steamID) == null)
-			{
-				await RequestUserInfo(new List<SteamID>() { steamID });
-			}
-		}
-
-		public async Task RequestUserInfo(List<SteamID> steamIDs)
+		public async Task RequestUserInfo(List<SteamID> steamIDs, int workerNumber)
 		{
 			if(steamIDs.Count == 0)
 			{
 				return;
 			}
 
-			Utils.WriteLine($"Requesting names for {steamIDs.Count} players");
+			Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting names for {steamIDs.Count} players");
 			IsRequestingUsers = new TaskCompletionSource<bool>();
 			RequestedSteamIDs.AddRange(steamIDs);
 			foreach(var steamID in steamIDs)
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Requesting name for {steamID}");
+					Utils.WriteLine($"Worker #{workerNumber+1}", $"Requesting name for {steamID}");
 				}
 			}
 			Handlers.Friends.RequestFriendInfo(steamIDs, EClientPersonaStateFlag.PlayerName);
@@ -202,7 +195,7 @@ namespace DistanceScraper
 		{
 			if (Settings.Verbose)
 			{
-				Utils.WriteLine($"RequestedSteamIDs: {RequestedSteamIDs.Count}");
+				Utils.WriteLine("Steam", $"RequestedSteamIDs: {RequestedSteamIDs.Count}");
 			}
 			
 			// Skip callbacks from stuff we don't care about
@@ -210,20 +203,20 @@ namespace DistanceScraper
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Unexpected SteamID: {callback.FriendID}");
+					Utils.WriteLine("Steam", $"Unexpected SteamID: {callback.FriendID}");
 				}
 				return;
 			}
 			RequestedSteamIDs.Remove(callback.FriendID);
 			if (Settings.Verbose)
 			{
-				Utils.WriteLine($"Name found for      {callback.FriendID}");
+				Utils.WriteLine("Steam", $"Name found for      {callback.FriendID}");
 			}
 			if (RequestedSteamIDs.Count == 0 && !IsRequestingUsers.Task.IsCompleted)
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine("Name lookup batch completed");
+					Utils.WriteLine("Steam", "Name lookup batch completed");
 				}
 				IsRequestingUsers.SetResult(true);
 			}

@@ -10,15 +10,11 @@ namespace DistanceScraper.DALs
 {
 	public class PlayerDAL
 	{
-		private MySqlConnection Connection { get; set; }
-
-		public PlayerDAL()
-		{
-			Connection = new MySqlConnection(Settings.ConnectionString);
-		}
+		public PlayerDAL() { }
 
 		public async Task<Dictionary<ulong, Player>> GetPlayers(List<ulong> steamIDs)
 		{
+			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 			var sql = $"SELECT ID, SteamID, Name FROM Players WHERE SteamID IN ({string.Join(",", steamIDs)})";
 			var command = new MySqlCommand(sql, Connection);
@@ -39,8 +35,8 @@ namespace DistanceScraper.DALs
 
 			return players;
 		}
-		
-		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper)
+
+		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
 		{
 			if (newEntries.Count == 0)
 			{
@@ -72,11 +68,12 @@ namespace DistanceScraper.DALs
 			var newPlayerBatches = playersToAdd.Chunk(100);
 			foreach (var batch in newPlayerBatches)
 			{
-				await scraper.RequestUserInfo(batch.ToList());
+				await scraper.RequestUserInfo(batch.ToList(), workerNumber);
 			}
 
 			// Add new players to the database
 			// Build the string that will become the query
+			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 			var sqlSB = new StringBuilder("INSERT INTO Players(SteamID, Name, FirstSeenTimeUTC) VALUES");
 			var i = 0;
@@ -97,7 +94,7 @@ namespace DistanceScraper.DALs
 				var name = handlers.Friends.GetFriendPersonaName(newPlayer);
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Adding {newPlayer.ConvertToUInt64()}: {name} to the players table");
+					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer.ConvertToUInt64()}: {name} to the players table");
 				}
 				command.Parameters.AddWithValue($"@userName{i}", name);
 				i++;
@@ -105,7 +102,7 @@ namespace DistanceScraper.DALs
 
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
-			Utils.WriteLine($"Added {playersToAdd.Count} new players to the database");
+			Utils.WriteLine($"Worker #{workerNumber + 1}", $"Added {playersToAdd.Count} new players to the database");
 		}
 	}
 }

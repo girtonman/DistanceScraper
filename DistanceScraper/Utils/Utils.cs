@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SteamKit2;
 
@@ -16,10 +17,10 @@ namespace DistanceScraper
 			Timer.Start();
 		}
 
-		public static void WriteLine(string message)
+		public static void WriteLine(string source, string message)
 		{
 			var elapsed = Timer.Elapsed;
-			Console.WriteLine($"[{(int) elapsed.TotalMinutes}:{elapsed.Seconds.ToString("00")}]: {message}");
+			Console.WriteLine($"[{(int) elapsed.TotalMinutes}:{elapsed.Seconds:00}][{source}]: {message}");
 		}
 
 		public static void ClearCurrentConsoleLine()
@@ -31,7 +32,7 @@ namespace DistanceScraper
 			Console.SetCursorPosition(0, currentLineCursor);
 		}
 
-		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper)
+		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
 		{
 			// Look for steamids that need caching
 			var steamIDs = new List<SteamID>();
@@ -48,14 +49,14 @@ namespace DistanceScraper
 			var steamIDBatches = steamIDs.Chunk(100);
 			foreach (var steamIDBatch in steamIDBatches)
 			{
-				await scraper.RequestUserInfo(steamIDBatch.ToList());
+				await scraper.RequestUserInfo(steamIDBatch.ToList(), workerNumber);
 			}
 
 			// Log information about the new time and who set it
 			foreach (var newEntry in newEntries)
 			{
 				var name = handlers.Friends.GetFriendPersonaName(newEntry.SteamID);
-				WriteLine($"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				WriteLine($"Worker #{workerNumber+1}", $"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
 			}
 		}
 	}

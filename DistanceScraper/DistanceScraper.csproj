@@ -10,6 +10,7 @@
     <PackageReference Include="SteamKit2" Version="2.4.1" />
     <PackageReference Include="MySqlConnector" Version="2.3.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>

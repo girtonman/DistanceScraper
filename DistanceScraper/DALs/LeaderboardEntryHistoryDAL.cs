@@ -9,20 +9,16 @@ namespace DistanceScraper.DALs
 {
 	public class LeaderboardEntryHistoryDAL
 	{
-		private MySqlConnection Connection { get; set; }
+		public LeaderboardEntryHistoryDAL() { }
 
-		public LeaderboardEntryHistoryDAL()
-		{
-			Connection = new MySqlConnection(Settings.ConnectionString);
-		}
-
-		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, Handlers handlers, BaseScraper scraper)
+		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
 		{
 			if (updatedEntries.Count == 0)
 			{
 				return;
 			}
-
+			
+			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 			var historyInsertsSB = new StringBuilder("INSERT INTO LeaderboardEntryHistory (LeaderboardID, SteamID, FirstSeenTimeUTC, OldMilliseconds, NewMilliseconds, OldRank, NewRank, UpdatedTimeUTC) VALUES");
 			foreach (var updatedEntry in updatedEntries)
@@ -37,15 +33,15 @@ namespace DistanceScraper.DALs
 				var rank = reader.GetInt32(0);
 				reader.Close();
 
-				var timeImprovement = existingEntry.Milliseconds - (ulong) updatedEntry.Score;
+				var timeImprovement = existingEntry.Milliseconds - (ulong)updatedEntry.Score;
 				var rankImprovement = rank - updatedEntry.GlobalRank;
 				var name = handlers.Friends.GetFriendPersonaName(updatedEntry.SteamID);
 				if (string.IsNullOrEmpty(name))
 				{
-					await scraper.RequestUserInfo(updatedEntry.SteamID);
+					await scraper.RequestUserInfo(new List<SteamID> { updatedEntry.SteamID }, workerNumber);
 					name = handlers.Friends.GetFriendPersonaName(updatedEntry.SteamID);
 				}
-				Utils.WriteLine($"Updated time: {name} improved on {leaderboard.LevelName}. Improved by {timeImprovement / 1000.0:0.000}s and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
+				Utils.WriteLine($"Worker #{workerNumber + 1}", $"Updated time: {name} improved on {leaderboard.LevelName}. Improved by {timeImprovement / 1000.0:0.000}s and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
 
 				historyInsertsSB.Append($"({existingEntry.LeaderboardID},{existingEntry.SteamID},{existingEntry.UpdatedTimeUTC},{existingEntry.Milliseconds},{updatedEntry.Score},{rank},{updatedEntry.GlobalRank},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
 			}
@@ -57,7 +53,7 @@ namespace DistanceScraper.DALs
 			await historyInsertsCommand.ExecuteNonQueryAsync();
 			Connection.Close();
 
-			Utils.WriteLine($"({leaderboard.ID}){leaderboard.LevelName}: Saved leaderboard entry history for {updatedEntries.Count} improvements");
+			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Saved leaderboard entry history for {updatedEntries.Count} improvements");
 		}
 	}
 }
