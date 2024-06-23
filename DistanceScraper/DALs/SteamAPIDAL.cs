@@ -34,7 +34,7 @@ namespace DistanceTracker.DALs
 			ResetBucketTask.Start();
 		}
 
-		private HttpClient CreateClient()
+		private static HttpClient CreateClient()
 		{
 			return new HttpClient
 			{
@@ -51,7 +51,7 @@ namespace DistanceTracker.DALs
 			Interlocked.Increment(ref BucketCount);
 		}
 
-		private async Task<JObject> RateLimitedPost(HttpClient client, string requestURI, List<KeyValuePair<string, string>> parameters = null)
+		private static async Task<JObject> RateLimitedPost(HttpClient client, string requestURI, List<KeyValuePair<string, string>> parameters = null)
 		{
 			await RateLimit();
 
@@ -72,7 +72,7 @@ namespace DistanceTracker.DALs
 			return JObject.Parse(responseMessage);
 		}
 
-		private async Task<JObject> RateLimitedGet(HttpClient client, string endpoint, Dictionary<string, object> parameters = null)
+		private static async Task<JObject> RateLimitedGet(HttpClient client, string endpoint, Dictionary<string, object> parameters = null)
 		{
 			await RateLimit();
 
@@ -93,7 +93,7 @@ namespace DistanceTracker.DALs
 			return JObject.Parse(responseMessage);
 		}
 
-		public async Task<PublishedFileDetail> GetWorkshopInfo(uint fileID)
+		public static async Task<PublishedFileDetail> GetWorkshopInfo(uint fileID)
 		{
 			var client = CreateClient();
 			var parameters = new List<KeyValuePair<string, string>>()
@@ -107,7 +107,7 @@ namespace DistanceTracker.DALs
 			return json["response"]["publishedfiledetails"].ToObject<List<PublishedFileDetail>>()[0];
 		}
 
-		public async Task<List<PublishedFileDetail>> GetWorkshopLevelList(uint mostRecentFileID = 0)
+		public static async Task<List<PublishedFileDetail>> GetWorkshopLevelList(uint mostRecentFileID = 0)
 		{
 			// Setup client and reusable part of the uri
 			var client = CreateClient();
@@ -166,7 +166,7 @@ namespace DistanceTracker.DALs
 			return levelList;
 		}
 
-		public async Task<List<PlayerSummary>> GetPlayerSummaries(List<ulong> steamIDs, int workerNumber)
+		public static async Task<List<PlayerSummary>> GetPlayerSummaries(List<ulong> steamIDs, int workerNumber)
 		{
 			// Setup client and the reusable part of the uri
 			var client = CreateClient();

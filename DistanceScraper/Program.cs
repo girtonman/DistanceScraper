@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using DistanceTracker.DALs;
 
 namespace DistanceScraper
 {
@@ -12,7 +13,8 @@ namespace DistanceScraper
 			try
 			{
 				Utils.Init();
-				scraper.Init();
+				SteamAPIDAL.Init();
+				SteamSDKDAL.Init();
 
 				// Seed the official leaderboards from constants in this program
 				new Thread(() => TableSeeder.SeedOfficialLeaderboards()).Start();

@@ -34,8 +34,6 @@ namespace DistanceScraper
 
 		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
 		{
-			var steamDAL = new SteamDAL();
-
 			// Look for steamids that need caching
 			var steamIDs = new List<ulong>();
 			foreach (var newEntry in newEntries)
@@ -51,7 +49,7 @@ namespace DistanceScraper
 			var steamIDBatches = steamIDs.Chunk(100);
 			foreach (var steamIDBatch in steamIDBatches)
 			{
-				await steamDAL.GetPlayerSummaries(steamIDBatch.ToList(), workerNumber);
+				await SteamAPIDAL.GetPlayerSummaries(steamIDBatch.ToList(), workerNumber);
 			}
 
 			// Log information about the new time and who set it

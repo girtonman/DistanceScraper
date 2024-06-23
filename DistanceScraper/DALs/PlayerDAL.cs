@@ -37,7 +37,7 @@ namespace DistanceScraper.DALs
 			return players;
 		}
 
-		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
+		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
 		{
 			if (newEntries.Count == 0)
 			{
@@ -67,10 +67,9 @@ namespace DistanceScraper.DALs
 
 			// Get steam names and cache them
 			var newPlayerBatches = playersToAdd.Chunk(100);
-			var steamDAL = new SteamDAL();
 			foreach (var batch in newPlayerBatches)
 			{
-				await steamDAL.GetPlayerSummaries(batch.ToList(), workerNumber);
+				await SteamAPIDAL.GetPlayerSummaries(batch.ToList(), workerNumber);
 			}
 
 			// Add new players to the database

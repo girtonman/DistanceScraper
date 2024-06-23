@@ -7,27 +7,25 @@ using System.Threading.Tasks;
 
 namespace DistanceScraper
 {
-	public class LeaderboardScraper : BaseScraper
+	public class LeaderboardScraper
 	{
 		private LeaderboardDAL LeaderboardDAL { get; set; }
 		private LeaderboardEntryDAL LeaderboardEntryDAL { get; set; }
 		private PlayerDAL PlayerDAL { get; set; }
 		private LeaderboardEntryHistoryDAL LeaderboardEntryHistoryDAL { get; set; }
-		private SteamDAL SteamDAL { get; set; }
 
-		public LeaderboardScraper(uint AppID) : base(AppID)
+		public LeaderboardScraper(uint AppID)
 		{
 			LeaderboardDAL = new LeaderboardDAL();
 			LeaderboardEntryDAL = new LeaderboardEntryDAL();
 			LeaderboardEntryHistoryDAL = new LeaderboardEntryHistoryDAL();
 			PlayerDAL = new PlayerDAL();
-			SteamDAL = new SteamDAL();
 		}
 
 		public async Task ScrapeWorkshopInfo()
 		{
 			var mostRecentFileID = await LeaderboardDAL.GetMostRecentFileID();
-			var newLevels = await SteamDAL.GetWorkshopLevelList(mostRecentFileID);
+			var newLevels = await SteamAPIDAL.GetWorkshopLevelList(mostRecentFileID);
 
 			// Add them from oldest to newest in order to make the list retrieval more efficient in subsequent scraper loops
 			newLevels.Reverse();
@@ -60,7 +58,7 @@ namespace DistanceScraper
 			var leaderboardsToUpdate = existingLeaderboards.Where(x => !x.SteamLeaderboardID.HasValue);
 			foreach (var leaderboardToUpdate in leaderboardsToUpdate)
 			{
-				var leaderboard = await Handlers.UserStats.FindLeaderboard(AppID, leaderboardToUpdate.LeaderboardName);
+				var leaderboard = await SteamSDKDAL.UserStats.FindLeaderboard(Constants.AppID, leaderboardToUpdate.LeaderboardName);
 				if (leaderboard.Result == EResult.OK && leaderboard.ID != 0)
 				{
 					Utils.WriteLine("Workshop", $"Saving steam leaderboard ID for {leaderboardToUpdate.LevelName} ({leaderboardToUpdate.LeaderboardName})");
@@ -103,7 +101,7 @@ namespace DistanceScraper
 					continue;
 				}
 				// Retrieve leaderboards from steam and from the DB
-				var job = await Handlers.UserStats.GetLeaderboardEntries(AppID, (int)leaderboard.SteamLeaderboardID, 0, 99999, ELeaderboardDataRequest.Global);
+				var job = await SteamSDKDAL.UserStats.GetLeaderboardEntries(Constants.AppID, (int)leaderboard.SteamLeaderboardID, 0, 99999, ELeaderboardDataRequest.Global);
 				if (job.Result != EResult.OK)
 				{
 					Utils.WriteLine($"Worker #{workerNumber+1}", $"Failed to retrieve entries for {leaderboard.LevelName}");
@@ -118,9 +116,9 @@ namespace DistanceScraper
 				var entriesToUpdate = entries.Where(x => existingEntries.ContainsKey(x.SteamID.ConvertToUInt64()) && !entryKeys.ContainsKey(leaderboard.ID + "-" + x.Score + "-" + x.SteamID.ConvertToUInt64())).ToList();
 
 				// Update the database based on the scraped data
-				await PlayerDAL.AddPlayersFromEntries(newEntries, Handlers, this, workerNumber);
-				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, Handlers, this, workerNumber);
-				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, Handlers, this, workerNumber);
+				await PlayerDAL.AddPlayersFromEntries(newEntries, workerNumber);
+				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, workerNumber);
+				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, workerNumber);
 				await LeaderboardEntryDAL.UpdateLeaderboardEntries(leaderboard, existingEntries, entriesToUpdate, workerNumber);
 			}
 		}

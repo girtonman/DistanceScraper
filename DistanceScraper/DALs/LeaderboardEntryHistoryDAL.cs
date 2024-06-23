@@ -13,9 +13,8 @@ namespace DistanceScraper.DALs
 	{
 		public LeaderboardEntryHistoryDAL() { }
 
-		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
+		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, int workerNumber)
 		{
-			var steamDal = new SteamDAL();
 			if (updatedEntries.Count == 0)
 			{
 				return;
@@ -39,7 +38,7 @@ namespace DistanceScraper.DALs
 				var timeImprovement = existingEntry.Milliseconds - (ulong)updatedEntry.Score;
 				var rankImprovement = rank - updatedEntry.GlobalRank;
 				Caches.PlayerCache.TryGetValue(updatedEntry.SteamID, out var player);
-				player ??= (await steamDal.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, workerNumber)).First();
+				player ??= (await SteamAPIDAL.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, workerNumber)).First();
 				Utils.WriteLine($"Worker #{workerNumber + 1}", $"Updated time: {player.Name} improved on {leaderboard.LevelName}. Improved by {timeImprovement / 1000.0:0.000}s and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
 
 				historyInsertsSB.Append($"({existingEntry.LeaderboardID},{existingEntry.SteamID},{existingEntry.UpdatedTimeUTC},{existingEntry.Milliseconds},{updatedEntry.Score},{rank},{updatedEntry.GlobalRank},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");

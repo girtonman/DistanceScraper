@@ -38,7 +38,7 @@ namespace DistanceScraper.DALs
 			return leaderboardEntries;
 		}
 
-		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
+		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
 		{
 			if (newEntries.Count == 0)
 			{
