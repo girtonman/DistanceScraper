@@ -22,6 +22,9 @@ namespace DistanceScraper
 				// Start a worker to asynchronously grab information on new levels
 				new Thread(() => WorkshopScraperThread()).Start();
 
+				// Start a worker to collect information about players
+				new Thread(() => PlayerSummaryThread()).Start();
+
 				// Create several workers so that scanning several thousand leaderboards for their entries doesn't take forever
 				for (var i = 0; i < Settings.Workers; i++)
 				{
@@ -65,7 +68,30 @@ namespace DistanceScraper
 			}
 		}
 
-		public static async void WorkerThread(int workerNumber)
+		public static async void PlayerSummaryThread()
+		{
+			var source = "Players";
+			var players = new PlayerScraper(source);
+			while (true)
+			{
+				try
+				{
+					if (Settings.Verbose)
+					{
+						Utils.WriteLine(source, "Backfilling the Players table with player information");
+					}
+					await players.ScrapePlayerSummaries();
+
+				}
+				catch(Exception e)
+				{
+					Utils.WriteLine(source, $"uh oh: {e.Message}");
+					Utils.WriteLine(source, $"Player scraper sleeping for 2 minutes before trying again.");
+				}
+				Thread.Sleep(TimeSpan.FromSeconds(10));
+			}
+		}
+
 		{
 			while (true)
 			{

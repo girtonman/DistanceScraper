@@ -28,13 +28,60 @@ namespace DistanceScraper.DALs
 				{
 					ID = reader.GetUInt32(0),
 					SteamID = reader.GetUInt64(1),
-					Name = reader.GetString(2),
+					Name = reader.IsDBNull(2) ? null : reader.GetString(2),
 				};
 			}
 			reader.Close();
 			Connection.Close();
 
 			return players;
+		}
+
+		public async Task UpdatePlayers(List<PlayerSummary> players, string source)
+		{
+			var Connection = new MySqlConnection(Settings.ConnectionString);
+			Connection.Open();
+
+			foreach (var player in players)
+			{
+				var sql = @"
+					UPDATE Players SET
+					Name = @name,
+					SteamAvatar = @avatar
+					WHERE SteamID = @steamID
+				";
+
+				// Create the sql query
+				var command = new MySqlCommand(sql, Connection);
+				command.Parameters.AddWithValue("@name", player.Name);
+				command.Parameters.AddWithValue("@avatar", player.Avatar);
+				command.Parameters.AddWithValue("@steamID", player.SteamID);
+
+				if (Settings.Verbose)
+				{
+					Utils.WriteLine(source, $"Updating {player.SteamID}:{player.Name}");
+				}
+				await command.ExecuteNonQueryAsync();
+			}
+
+			Connection.Close();
+		}
+
+		public async Task<List<ulong>> GetSteamIDsForUpdating()
+		{
+			var Connection = new MySqlConnection(Settings.ConnectionString);
+			Connection.Open();
+			var sql = "SELECT SteamID FROM Players WHERE Name IS NULL";
+			var command = new MySqlCommand(sql, Connection);
+			var reader = await command.ExecuteReaderAsync();
+
+			List<ulong> steamIDs = new();
+			while (reader.Read())
+			{
+				steamIDs.Add(reader.GetUInt64(0));
+			}
+
+			return steamIDs;
 		}
 
 		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
@@ -45,17 +92,13 @@ namespace DistanceScraper.DALs
 			}
 
 			// Get players from the DB and determine which SteamIDs will need to be added
-			var existingLookupBatches = newEntries.Chunk(100);
 			var playersToAdd = new List<ulong>();
-			foreach (var batch in existingLookupBatches)
+			var existingUsers = await GetPlayers(newEntries.Select(x => (ulong)x.SteamID).ToList());
+			foreach (var entry in newEntries)
 			{
-				var existingUsers = await GetPlayers(batch.Select(x => (ulong)x.SteamID).ToList());
-				foreach (var entry in batch)
+				if (!existingUsers.ContainsKey(entry.SteamID))
 				{
-					if (!existingUsers.ContainsKey(entry.SteamID))
-					{
-						playersToAdd.Add(entry.SteamID);
-					}
+					playersToAdd.Add(entry.SteamID);
 				}
 			}
 
@@ -65,23 +108,18 @@ namespace DistanceScraper.DALs
 				return;
 			}
 
-			// Get steam names and cache them
-			var newPlayerBatches = playersToAdd.Chunk(100);
-			foreach (var batch in newPlayerBatches)
-			{
-				await SteamAPIDAL.GetPlayerSummaries(batch.ToList(), workerNumber);
-			}
-
 			// Add new players to the database
 			// Build the string that will become the query
 			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
-			var sqlSB = new StringBuilder("INSERT INTO Players(SteamID, Name, FirstSeenTimeUTC) VALUES");
-			var i = 0;
+			var sqlSB = new StringBuilder("INSERT INTO Players(SteamID, FirstSeenTimeUTC) VALUES");
 			foreach (var newPlayer in playersToAdd)
 			{
-				sqlSB.Append($"({newPlayer},@userName{i},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
-				i++;
+				if (Settings.Verbose)
+				{
+					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer} to the players table");
+				}
+				sqlSB.Append($"({newPlayer},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
 			}
 			sqlSB.Remove(sqlSB.Length - 1, 1); // Remove last comma
 			sqlSB.Append(" ON DUPLICATE KEY UPDATE ID = ID");
@@ -89,23 +127,42 @@ namespace DistanceScraper.DALs
 			// Create the sql query
 			var command = new MySqlCommand(sqlSB.ToString(), Connection);
 
-			// Add parameter values for player names
-			i = 0;
-			foreach (var newPlayer in playersToAdd)
-			{
-				Caches.PlayerCache.TryGetValue(newPlayer, out var player);
-				player ??= PlayerSummary.UnknownPlayer;
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer}: {player.Name} to the players table");
-				}
-				command.Parameters.AddWithValue($"@userName{i}", player.Name);
-				i++;
-			}
-
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
 			Utils.WriteLine($"Worker #{workerNumber + 1}", $"Added {playersToAdd.Count} new players to the database");
+		}
+
+		public async Task FillMissingPlayerInfo(string source)
+		{
+			var steamIDsToUpdate = await GetSteamIDsForUpdating();
+			if(steamIDsToUpdate.Count == 0)
+			{
+				return;
+			}
+
+			// Update each batch to minimize potential API call waste
+			var updateBatches = steamIDsToUpdate.Chunk(100);
+			foreach (var batch in updateBatches)
+			{
+				// Fill the cache
+				await SteamAPIDAL.GetPlayerSummaries(batch.ToList(), source);
+
+				// Get the players from the cache
+				var players = new List<PlayerSummary>();
+				foreach (var steamID in batch)
+				{
+					Caches.PlayerCache.TryGetValue(steamID, out var player);
+					player ??= PlayerSummary.UnknownPlayer;
+					player.SteamID = player.SteamID == 0 ? steamID : player.SteamID;
+
+					players.Add(player);
+				}
+
+				// Update this batch
+				await UpdatePlayers(players, source);
+			}
+
+			Utils.WriteLine(source, $"Updated {steamIDsToUpdate.Count} players");
 		}
 	}
 }
