@@ -19,7 +19,7 @@ namespace DistanceScraper
 				// Seed the official leaderboards from constants in this program
 				new Thread(() => TableSeeder.SeedOfficialLeaderboards()).Start();
 
-				// Start a worker to asynchronously grab information on new levels
+				// Start a worker to collect information on new levels
 				new Thread(() => WorkshopScraperThread()).Start();
 
 				// Start a worker to collect information about players
@@ -29,7 +29,8 @@ namespace DistanceScraper
 				for (var i = 0; i < Settings.Workers; i++)
 				{
 					var workerNumber = i+0;
-					new Thread(() => WorkerThread(workerNumber)).Start();
+					new Thread(() => OfficialLeaderboardThread(workerNumber)).Start();
+					new Thread(() => UnofficialLeaderboardThread(workerNumber)).Start();
 				}
 
 				// Don't exit the app
@@ -92,6 +93,7 @@ namespace DistanceScraper
 			}
 		}
 
+		public static async void OfficialLeaderboardThread(int workerNumber)
 		{
 			while (true)
 			{
@@ -102,7 +104,22 @@ namespace DistanceScraper
 						Utils.WriteLine($"Worker #{workerNumber+1}", "Scraping Official Leaderboards");
 					}
 					await scraper.ScrapeOfficialLeaderboardEntries(workerNumber);
-
+				}
+				catch (Exception e)
+				{
+					Utils.WriteLine($"Worker #{workerNumber+1}", $"uh oh: {e.Message}");
+					Utils.WriteLine($"Worker #{workerNumber+1}", $"Worker sleeping for 5 minutes before trying again.");
+					Thread.Sleep(TimeSpan.FromMinutes(5));
+				}
+			}
+		}
+		
+		public static async void UnofficialLeaderboardThread(int workerNumber)
+		{
+			while (true)
+			{
+				try
+				{
 					if (Settings.Verbose)
 					{
 						Utils.WriteLine($"Worker #{workerNumber+1}", "Scraping Unofficial Leaderboards");
