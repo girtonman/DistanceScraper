@@ -16,13 +16,13 @@ namespace DistanceTracker.DALs
 		private static Uri BaseAPIAddress { get; set; }
 		private static Task ResetBucketTask;
 		private static int BucketCount = 0;
+		private static bool ForceWait = false;
 
 		public static void Init()
 		{
 			SteamAPIKey = Settings.SteamAPIKey;
 			BaseAPIAddress = new Uri("https://api.steampowered.com");
 			ResetBucketTask = ResetBucket();
-			ResetBucketTask.Start();
 		}
 
 		private static async Task ResetBucket()
@@ -30,8 +30,8 @@ namespace DistanceTracker.DALs
 			await Task.Delay(Settings.SteamAPIBucketingWindowSeconds * 1000);
 			Utils.WriteLine("SteamAPI", $"Resetting rate limiting bucket. API calls this window: {BucketCount}");
 			Volatile.Write(ref BucketCount, 0);
+			Volatile.Write(ref ForceWait, false);
 			ResetBucketTask = ResetBucket();
-			ResetBucketTask.Start();
 		}
 
 		private static HttpClient CreateClient()
@@ -44,9 +44,11 @@ namespace DistanceTracker.DALs
 
 		private static async Task RateLimit()
 		{
-			if (Volatile.Read(ref BucketCount) > Settings.SteamAPIWindowLimit)
+			if (Volatile.Read(ref BucketCount) > Settings.SteamAPIWindowLimit || Volatile.Read(ref ForceWait))
 			{
+				Utils.WriteLine("SteamAPI", $"Rate limit hit BucketCount:{BucketCount}, ForceWait: {ForceWait}");
 				await ResetBucketTask;
+				Utils.WriteLine("SteamAPI", $"Rate limit released.");
 			}
 			Interlocked.Increment(ref BucketCount);
 		}
@@ -62,11 +64,27 @@ namespace DistanceTracker.DALs
 				content = new FormUrlEncodedContent(parameters);
 			}
 
-			var response = await client.PostAsync(requestURI, content);
-			var responseMessage = await response.Content.ReadAsStringAsync();
-			if (!response.IsSuccessStatusCode)
+			var tries = 0;
+			var tryLimit = 1;
+			string responseMessage;
+			while (true)
 			{
-				throw new Exception($"Steam API call failed ({response.StatusCode}): {responseMessage}");
+				var response = await client.PostAsync(requestURI, content);
+				responseMessage = await response.Content.ReadAsStringAsync();
+				if (response.IsSuccessStatusCode)
+				{
+					break;
+				}
+
+				if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && tries <= tryLimit)
+				{
+					ForceWait = true;
+					tries++;
+				}
+				else
+				{
+					throw new Exception($"Steam API call failed ({response.StatusCode}): {responseMessage}");
+				}
 			}
 
 			return JObject.Parse(responseMessage);
@@ -79,15 +97,30 @@ namespace DistanceTracker.DALs
 			string parametersURI = "";
 			if (parameters != null)
 			{
-				parameters.Append(new KeyValuePair<string, object>("key", SteamAPIKey));
+				parameters["key"] = SteamAPIKey;
 				parametersURI = "?" + string.Join("&", parameters.Select(x => $"{x.Key}={HttpUtility.UrlEncode(x.Value.ToString())}"));
 			}
 
-			var response = await client.GetAsync(endpoint + parametersURI);
-			var responseMessage = await response.Content.ReadAsStringAsync();
-			if (!response.IsSuccessStatusCode)
+			var tries = 0;
+			var tryLimit = 1;
+			string responseMessage;
+			while (true)
 			{
-				throw new Exception($"Steam API call failed ({response.StatusCode}): {responseMessage}");
+				var response = await client.GetAsync(endpoint + parametersURI);
+				responseMessage = await response.Content.ReadAsStringAsync();
+				if (response.IsSuccessStatusCode)
+				{
+					break;
+				}
+				if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && tries <= tryLimit)
+				{
+					ForceWait = true;
+					tries++;
+				}
+				else
+				{
+					throw new Exception($"Steam API call failed ({response.StatusCode}): {responseMessage}");
+				}
 			}
 
 			return JObject.Parse(responseMessage);
@@ -129,7 +162,7 @@ namespace DistanceTracker.DALs
 			{
 				// Update the cursor
 				parameters["cursor"] = cursor;
-				
+
 				// Query the API for workshop levels
 				var json = await RateLimitedGet(client, endpoint, parameters);
 
@@ -166,7 +199,7 @@ namespace DistanceTracker.DALs
 			return levelList;
 		}
 
-		public static async Task<List<PlayerSummary>> GetPlayerSummaries(List<ulong> steamIDs, int workerNumber)
+		public static async Task<List<PlayerSummary>> GetPlayerSummaries(List<ulong> steamIDs, string source)
 		{
 			// Setup client and the reusable part of the uri
 			var client = CreateClient();
@@ -189,7 +222,7 @@ namespace DistanceTracker.DALs
 				players.Add(player);
 			}
 
-			Utils.WriteLine($"Worker #{workerNumber + 1}", $"Found {players.Count} player summaries");
+			Utils.WriteLine(source, $"Found {players.Count} player summaries");
 			return players;
 		}
 	}
