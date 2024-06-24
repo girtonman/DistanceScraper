@@ -72,28 +72,28 @@ namespace DistanceScraper
 		}
 
 		// Scrapes the leaderboard entries for the official maps
-		public async Task ScrapeOfficialLeaderboardEntries(int workerNumber)
+		public async Task ScrapeOfficialLeaderboardEntries(int workerNumber, string source)
 		{
 			var leaderboards = await LeaderboardDAL.GetOfficialLeaderboards();
 			var workerLeaderboards = leaderboards.Where(x => x.ID % Settings.Workers == workerNumber).ToList();
-			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber);
+			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber, source);
 		}
 
-		public async Task ScrapeUnofficialLeaderboardEntries(int workerNumber)
+		public async Task ScrapeUnofficialLeaderboardEntries(int workerNumber, string source)
 		{
 			var leaderboards = await LeaderboardDAL.GetUnofficialSprintLeaderboards();
 			var workerLeaderboards = leaderboards.Where(x => x.ID % Settings.Workers == workerNumber).ToList();
-			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber);
+			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber, source);
 		}
 
 		// Scrapes leaderboard entries and updates the relevant rows in the database
-		public async Task ScrapeLeaderboardEntries(List<Leaderboard> leaderboards, int workerNumber)
+		public async Task ScrapeLeaderboardEntries(List<Leaderboard> leaderboards, int workerNumber, string source)
 		{
 			foreach (var leaderboard in leaderboards)
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"===================Processing #{leaderboard.ID}: {leaderboard.LevelName}===================");
+					Utils.WriteLine(source, $"Processing #{leaderboard.ID}: {leaderboard.LevelName}");
 				}
 
 				if (leaderboard.SteamLeaderboardID == null)
@@ -104,7 +104,7 @@ namespace DistanceScraper
 				var job = await SteamSDKDAL.UserStats.GetLeaderboardEntries(Constants.AppID, (int)leaderboard.SteamLeaderboardID, 0, 99999, ELeaderboardDataRequest.Global);
 				if (job.Result != EResult.OK)
 				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"Failed to retrieve entries for {leaderboard.LevelName}");
+					Utils.WriteLine(source, $"Failed to retrieve entries for {leaderboard.LevelName}");
 					continue;
 				}
 				var entries = job.Entries;

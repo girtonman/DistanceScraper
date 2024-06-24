@@ -28,8 +28,12 @@ namespace DistanceTracker.DALs
 		private static async Task ResetBucket()
 		{
 			await Task.Delay(Settings.SteamAPIBucketingWindowSeconds * 1000);
-			Utils.WriteLine("SteamAPI", $"Resetting rate limiting bucket. API calls this window: {BucketCount}");
+			var bucketCountThisWindow = Volatile.Read(ref BucketCount);
 			Volatile.Write(ref BucketCount, 0);
+			if (bucketCountThisWindow > 0)
+			{
+				Utils.WriteLine("SteamAPI", $"Resetting rate limiting bucket. API calls this window: {bucketCountThisWindow}");
+			}
 			Volatile.Write(ref ForceWait, false);
 			ResetBucketTask = ResetBucket();
 		}

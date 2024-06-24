@@ -95,20 +95,21 @@ namespace DistanceScraper
 
 		public static async void OfficialLeaderboardThread(int workerNumber)
 		{
+			var source = $"Worker #{workerNumber+1}";
 			while (true)
 			{
 				try
 				{
 					if (Settings.Verbose)
 					{
-						Utils.WriteLine($"Worker #{workerNumber+1}", "Scraping Official Leaderboards");
+						Utils.WriteLine(source, "Scraping Official Leaderboards");
 					}
-					await scraper.ScrapeOfficialLeaderboardEntries(workerNumber);
+					await scraper.ScrapeOfficialLeaderboardEntries(workerNumber, source);
 				}
 				catch (Exception e)
 				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"uh oh: {e.Message}");
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"Worker sleeping for 5 minutes before trying again.");
+					Utils.WriteLine(source, $"uh oh: {e.Message}");
+					Utils.WriteLine(source, $"Worker sleeping for 5 minutes before trying again.");
 					Thread.Sleep(TimeSpan.FromMinutes(5));
 				}
 			}
@@ -116,20 +117,21 @@ namespace DistanceScraper
 		
 		public static async void UnofficialLeaderboardThread(int workerNumber)
 		{
+			var source = $"Worker #{workerNumber+1}";
 			while (true)
 			{
 				try
 				{
 					if (Settings.Verbose)
 					{
-						Utils.WriteLine($"Worker #{workerNumber+1}", "Scraping Unofficial Leaderboards");
+						Utils.WriteLine(source, "Scraping Unofficial Leaderboards");
 					}
-					await scraper.ScrapeUnofficialLeaderboardEntries(workerNumber);
+					await scraper.ScrapeUnofficialLeaderboardEntries(workerNumber, source);
 				}
 				catch (Exception e)
 				{
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"uh oh: {e.Message}");
-					Utils.WriteLine($"Worker #{workerNumber+1}", $"Worker sleeping for 5 minutes before trying again.");
+					Utils.WriteLine(source, $"uh oh: {e.Message}");
+					Utils.WriteLine(source, $"Worker sleeping for 5 minutes before trying again.");
 					Thread.Sleep(TimeSpan.FromMinutes(5));
 				}
 			}
