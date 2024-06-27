@@ -1,66 +1,70 @@
 ﻿using SteamKit2;
 using System;
-using System.Collections.Concurrent;
-using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 using static SteamKit2.SteamClient;
 using static SteamKit2.SteamUser;
 
 namespace DistanceScraper
 {
-	public class BaseScraper
+	public static class SteamSDKDAL
 	{
-		protected uint AppID { get; set; }
-		protected Handlers Handlers { get; set; }
-		private SteamClient Client;
-		private CallbackManager Manager;
-		private bool IsReady;
+		public static SteamUserStats UserStats { get; set; }
+		public static SteamUser User { get; set; }
+		private static SteamClient Client;
+		private static CallbackManager Manager;
+		private static bool IsReady;
 
-		public BaseScraper(uint appID)
+		public static void Init()
 		{
-			AppID = appID;
-		}
-
-		public void Init()
-		{
+			// Initialize steam client
 			Client = new SteamClient();
 			Manager = new CallbackManager(Client);
 
-			Handlers = new Handlers()
-			{
-				UserStats = Client.GetHandler<SteamUserStats>(),
-				User = Client.GetHandler<SteamUser>(),
-			};
+			// Initialize handlers for interfaces
+			UserStats = Client.GetHandler<SteamUserStats>();
+			User = Client.GetHandler<SteamUser>();
 
+			// Register callbacks
 			Manager.Subscribe<ConnectedCallback>(OnConnected);
 			Manager.Subscribe<DisconnectedCallback>(OnDisconnected);
 			Manager.Subscribe<LoggedOnCallback>(OnLoggedOn);
 			Manager.Subscribe<LoggedOffCallback>(OnLoggedOff);
 
 			Client.Connect();
-			new Thread(() => {
+			new Thread(() =>
+			{
 				while (true)
 				{
-					Manager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
+					// TODO: Figure out if swallowing these exceptions is bad
+					// NOTE: Adding this try catch might be what solves mysterious scraper deaths
+					// since callbacks would not be processed if this thread ever died since it 
+					// doesn't get started up again
+					try
+					{
+						Manager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
+					}
+					catch (Exception e)
+					{
+						Utils.WriteLine("Callback Loop", $"Swallowing unexpected exception during RunWaitCallbacks: {e.Message}");
+					}
 				}
 			}).Start();
-			
+
 			// Wait for login
-			while(!IsReady)
+			while (!IsReady)
 			{
 				Thread.Sleep(TimeSpan.FromSeconds(5));
 			}
 		}
 
-		private void OnConnected(ConnectedCallback callback)
+		private static void OnConnected(ConnectedCallback callback)
 		{
 			Utils.WriteLine("Init", $"Connected to Steam! Logging in '{Settings.Username}'...");
 
 			LogOn();
 		}
 
-		private void OnDisconnected(DisconnectedCallback callback)
+		private static void OnDisconnected(DisconnectedCallback callback)
 		{
 			// after recieving an AccountLogonDenied, we'll be disconnected from steam
 			// so after we read an authcode from the user, we need to reconnect to begin the logon flow again
@@ -72,22 +76,9 @@ namespace DistanceScraper
 			Client.Connect();
 		}
 
-		private byte[] GetSentryHash()
+		private static void LogOn()
 		{
-			byte[] sentryHash = null;
-			if (File.Exists("sentry.bin"))
-			{
-				// if we have a saved sentry file, read and sha-1 hash it
-				var sentryFile = File.ReadAllBytes("sentry.bin");
-				sentryHash = CryptoHelper.SHAHash(sentryFile);
-			}
-
-			return sentryHash;
-		}
-
-		private void LogOn()
-		{
-			Handlers.User.LogOn(new LogOnDetails
+			User.LogOn(new LogOnDetails
 			{
 				Username = Settings.Username,
 				Password = Settings.Password,
@@ -96,7 +87,7 @@ namespace DistanceScraper
 			});
 		}
 
-		private void OnLoggedOn(LoggedOnCallback callback)
+		private static void OnLoggedOn(LoggedOnCallback callback)
 		{
 			if (callback.Result != EResult.OK)
 			{
@@ -111,7 +102,7 @@ namespace DistanceScraper
 			}
 		}
 
-		private void OnLoggedOff(LoggedOffCallback callback)
+		private static void OnLoggedOff(LoggedOffCallback callback)
 		{
 			IsReady = false;
 			Utils.WriteLine("Init", $"Logged off of Steam: {callback.Result}");
