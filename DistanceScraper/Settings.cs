@@ -7,8 +7,9 @@
 		public static string Password { get; } = "";
 		public static string SteaamAPIKey { get; } = "";
 		public static bool Verbose { get; } = true;
-		public static int Workers { get; } = 5;
-		public static int SteamAPIBucketingWindowSeconds { get; } = 300;
-		public static int SteamAPIWindowLimit { get; } = 200;
+		public static int Workers { get; } = 1;
+		public static int SteamAPIBucketingWindowSeconds { get; } = 10;
+		public static int SteamAPIWindowLimit { get; } = 9;
+		public static double SteamAPIRequestsPerSecond { get; } = 1;
 	}
 }
