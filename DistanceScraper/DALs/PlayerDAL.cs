@@ -80,6 +80,7 @@ namespace DistanceScraper.DALs
 			{
 				steamIDs.Add(reader.GetUInt64(0));
 			}
+			Connection.Close();
 
 			return steamIDs;
 		}
