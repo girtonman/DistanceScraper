@@ -13,7 +13,7 @@ namespace DistanceScraper.DALs
 	{
 		public LeaderboardEntryHistoryDAL() { }
 
-		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, int workerNumber)
+		public async Task AddLeaderboardEntryHistory(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, string source)
 		{
 			if (updatedEntries.Count == 0)
 			{
@@ -27,7 +27,9 @@ namespace DistanceScraper.DALs
 			{
 				// Get existing entry and the rank they held
 				var existingEntry = existingEntries[updatedEntry.SteamID.ConvertToUInt64()];
-				var sql = $"SELECT `Rank` FROM (SELECT SteamID, RANK() OVER (ORDER BY Milliseconds ASC) `Rank` FROM LeaderboardEntries WHERE LeaderboardID = {existingEntry.LeaderboardID}) rankings WHERE SteamID = {existingEntry.SteamID};";
+				var order = leaderboard.LevelType == LevelType.Stunt ? "DESC" : "ASC";
+				//TODO only query this once (mostly useful during initial scraping)
+				var sql = $"SELECT `Rank` FROM (SELECT SteamID, RANK() OVER (ORDER BY Milliseconds {order}) `Rank` FROM LeaderboardEntries WHERE LeaderboardID = {existingEntry.LeaderboardID}) rankings WHERE SteamID = {existingEntry.SteamID};";
 				var command = new MySqlCommand(sql, Connection);
 				var reader = await command.ExecuteReaderAsync();
 
@@ -35,11 +37,12 @@ namespace DistanceScraper.DALs
 				var rank = reader.GetInt32(0);
 				reader.Close();
 
-				var timeImprovement = existingEntry.Milliseconds - (ulong)updatedEntry.Score;
+				var improvement = leaderboard.LevelType == LevelType.Stunt ? ((ulong)updatedEntry.Score - existingEntry.Milliseconds) : (existingEntry.Milliseconds - (ulong)updatedEntry.Score);
 				var rankImprovement = rank - updatedEntry.GlobalRank;
 				Caches.PlayerCache.TryGetValue(updatedEntry.SteamID, out var player);
-				player ??= (await SteamAPIDAL.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, $"Worker #{workerNumber + 1}")).First();
-				Utils.WriteLine($"Worker #{workerNumber + 1}", $"Updated time: {player.Name} improved on {leaderboard.LevelName}. Improved by {timeImprovement / 1000.0:0.000}s and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
+				player ??= (await SteamAPIDAL.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, source)).First();
+				var improvementString = leaderboard.LevelType == LevelType.Stunt ? $"{improvement} eV" : $"{improvement / 1000.0:0.000}s";
+				Utils.WriteLine(source, $"Updated {(leaderboard.LevelType == LevelType.Stunt ? "score" : "time")}: {player.Name} improved on {leaderboard.LevelName}. Improved by {improvementString} and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
 
 				historyInsertsSB.Append($"({existingEntry.LeaderboardID},{existingEntry.SteamID},{existingEntry.UpdatedTimeUTC},{existingEntry.Milliseconds},{updatedEntry.Score},{rank},{updatedEntry.GlobalRank},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
 			}
@@ -51,7 +54,7 @@ namespace DistanceScraper.DALs
 			await historyInsertsCommand.ExecuteNonQueryAsync();
 			Connection.Close();
 
-			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Saved leaderboard entry history for {updatedEntries.Count} improvements");
+			Utils.WriteLine(source, $"({leaderboard.ID}){leaderboard.LevelName}: Saved leaderboard entry history for {updatedEntries.Count} improvements");
 		}
 	}
 }

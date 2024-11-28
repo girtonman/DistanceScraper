@@ -32,7 +32,7 @@ namespace DistanceScraper
 			Console.SetCursorPosition(0, currentLineCursor);
 		}
 
-		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
+		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, string source)
 		{
 			// TODO: Pull from database instead of doing API calls
 			// // Look for steamids that need caching
@@ -50,7 +50,7 @@ namespace DistanceScraper
 			// var steamIDBatches = steamIDs.Chunk(100);
 			// foreach (var steamIDBatch in steamIDBatches)
 			// {
-			// 	await SteamAPIDAL.GetPlayerSummaries(steamIDBatch.ToList(), $"Worker #{workerNumber + 1}");
+			// 	await SteamAPIDAL.GetPlayerSummaries(steamIDBatch.ToList(), source);
 			// }
 
 			// Log information about the new time and who set it
@@ -58,7 +58,7 @@ namespace DistanceScraper
 			{
 				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var player);
 				var identity = (player == null || string.IsNullOrEmpty(player.Name)) ? newEntry.SteamID.ToString() : player.Name;
-				WriteLine($"Worker #{workerNumber + 1}", $"New time: {identity} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				WriteLine(source, $"New time: {identity} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
 			}
 		}
 	}

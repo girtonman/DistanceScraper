@@ -80,13 +80,13 @@ namespace DistanceScraper
 
 		public async Task ScrapeUnofficialLeaderboardEntries(int workerNumber, string source)
 		{
-			var leaderboards = await LeaderboardDAL.GetUnofficialSprintLeaderboards();
+			var leaderboards = await LeaderboardDAL.GetUnofficialLeaderboards();
 			var workerLeaderboards = leaderboards.Where(x => x.ID % Settings.Workers == workerNumber).ToList();
-			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber, source);
+			await ScrapeLeaderboardEntries(workerLeaderboards, source);
 		}
 
 		// Scrapes leaderboard entries and updates the relevant rows in the database
-		public async Task ScrapeLeaderboardEntries(List<Leaderboard> leaderboards, int workerNumber, string source)
+		public async Task ScrapeLeaderboardEntries(List<Leaderboard> leaderboards, string source)
 		{
 			foreach (var leaderboard in leaderboards)
 			{
@@ -115,10 +115,10 @@ namespace DistanceScraper
 				var entriesToUpdate = entries.Where(x => existingEntries.ContainsKey(x.SteamID.ConvertToUInt64()) && !entryKeys.ContainsKey(leaderboard.ID + "-" + x.Score + "-" + x.SteamID.ConvertToUInt64())).ToList();
 
 				// Update the database based on the scraped data
-				await PlayerDAL.AddPlayersFromEntries(newEntries, workerNumber);
-				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, workerNumber);
-				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, workerNumber);
-				await LeaderboardEntryDAL.UpdateLeaderboardEntries(leaderboard, existingEntries, entriesToUpdate, workerNumber);
+				await PlayerDAL.AddPlayersFromEntries(newEntries, source);
+				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, source);
+				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, source);
+				await LeaderboardEntryDAL.UpdateLeaderboardEntries(leaderboard, existingEntries, entriesToUpdate, source);
 			}
 		}
 	}

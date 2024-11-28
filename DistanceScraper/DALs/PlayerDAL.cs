@@ -84,7 +84,7 @@ namespace DistanceScraper.DALs
 			return steamIDs;
 		}
 
-		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
+		public async Task AddPlayersFromEntries(List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, string source)
 		{
 			if (newEntries.Count == 0)
 			{
@@ -117,7 +117,7 @@ namespace DistanceScraper.DALs
 			{
 				if (Settings.Verbose)
 				{
-					Utils.WriteLine($"Worker #{workerNumber + 1}", $"Adding {newPlayer} to the players table");
+					Utils.WriteLine(source, $"Adding {newPlayer} to the players table");
 				}
 				sqlSB.Append($"({newPlayer},{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}),");
 			}
@@ -129,7 +129,7 @@ namespace DistanceScraper.DALs
 
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
-			Utils.WriteLine($"Worker #{workerNumber + 1}", $"Added {playersToAdd.Count} new players to the database");
+			Utils.WriteLine(source, $"Added {playersToAdd.Count} new players to the database");
 		}
 
 		public async Task FillMissingPlayerInfo(string source)
