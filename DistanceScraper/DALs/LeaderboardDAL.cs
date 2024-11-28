@@ -63,7 +63,7 @@ namespace DistanceScraper.DALs
 			return leaderboards;
 		}
 
-		public async Task<List<Leaderboard>> GetUnofficialSprintLeaderboards()
+		public async Task<List<Leaderboard>> GetUnofficialLeaderboards()
 		{
 			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
@@ -109,7 +109,7 @@ namespace DistanceScraper.DALs
 				var command = new MySqlCommand(sql, Connection);
 				command.Parameters.AddWithValue("@levelName", level.LevelName);
 				command.Parameters.AddWithValue("@imageURL", $"/images/{level.LevelName}.bytes.png");
-				command.Parameters.AddWithValue("@leaderboardName", $"{level.LevelName}_{level.LevelType:D}1_stable");
+				command.Parameters.AddWithValue("@leaderboardName", $"{level.LevelName}_{level.LevelType:D}_stable");
 				command.Parameters.AddWithValue("@isOfficial", level.IsOfficial);
 				command.Parameters.AddWithValue("@levelType", level.LevelType);
 				command.Parameters.AddWithValue("@levelSet", level.LevelSet);

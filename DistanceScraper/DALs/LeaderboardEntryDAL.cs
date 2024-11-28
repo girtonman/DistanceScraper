@@ -38,7 +38,7 @@ namespace DistanceScraper.DALs
 			return leaderboardEntries;
 		}
 
-		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, Handlers handlers, BaseScraper scraper, int workerNumber)
+		public async Task AddLeaderboardEntries(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, string source)
 		{
 			if (newEntries.Count == 0)
 			{
@@ -47,7 +47,7 @@ namespace DistanceScraper.DALs
 
 			if (Settings.Verbose)
 			{
-				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, workerNumber);
+				await Utils.LogNewLeaderboardEntry(leaderboard, newEntries, source);
 			}
 
 			var sqlSB = new StringBuilder("INSERT INTO LeaderboardEntries (LeaderboardID, Milliseconds, SteamID, FirstSeenTimeUTC, UpdatedTimeUTC) VALUES");
@@ -61,10 +61,10 @@ namespace DistanceScraper.DALs
 			var command = new MySqlCommand(sql, Connection);
 			await command.ExecuteNonQueryAsync();
 			Connection.Close();
-			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
+			Utils.WriteLine(source, $"({leaderboard.ID}){leaderboard.LevelName}: Added {newEntries.Count} new leaderboard entries to the database");
 		}
 
-		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, int workerNumber)
+		public async Task UpdateLeaderboardEntries(Leaderboard leaderboard, Dictionary<ulong, LeaderboardEntry> existingEntries, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> updatedEntries, string source)
 		{
 			if (existingEntries.Count == 0 || updatedEntries.Count == 0)
 			{
@@ -82,7 +82,7 @@ namespace DistanceScraper.DALs
 				Connection.Close();
 			}
 
-			Utils.WriteLine($"Worker #{workerNumber + 1}", $"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
+			Utils.WriteLine(source, $"({leaderboard.ID}){leaderboard.LevelName}: Updated {updatedEntries.Count} leaderboard entry records");
 		}
 	}
 }

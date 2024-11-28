@@ -32,33 +32,33 @@ namespace DistanceScraper
 			Console.SetCursorPosition(0, currentLineCursor);
 		}
 
-		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, int workerNumber)
+		public static async Task LogNewLeaderboardEntry(Leaderboard leaderboard, List<SteamUserStats.LeaderboardEntriesCallback.LeaderboardEntry> newEntries, string source)
 		{
-			var steamDAL = new SteamDAL();
+			// TODO: Pull from database instead of doing API calls
+			// // Look for steamids that need caching
+			// var steamIDs = new List<ulong>();
+			// foreach (var newEntry in newEntries)
+			// {
+			// 	Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var player);
+			// 	if (player == null)
+			// 	{
+			// 		steamIDs.Add(newEntry.SteamID);
+			// 	}
+			// }
 
-			// Look for steamids that need caching
-			var steamIDs = new List<ulong>();
-			foreach (var newEntry in newEntries)
-			{
-				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var player);
-				if (player == null)
-				{
-					steamIDs.Add(newEntry.SteamID);
-				}
-			}
-
-			// Cache in batches
-			var steamIDBatches = steamIDs.Chunk(100);
-			foreach (var steamIDBatch in steamIDBatches)
-			{
-				await steamDAL.GetPlayerSummaries(steamIDBatch.ToList(), workerNumber);
-			}
+			// // Cache in batches
+			// var steamIDBatches = steamIDs.Chunk(100);
+			// foreach (var steamIDBatch in steamIDBatches)
+			// {
+			// 	await SteamAPIDAL.GetPlayerSummaries(steamIDBatch.ToList(), source);
+			// }
 
 			// Log information about the new time and who set it
 			foreach (var newEntry in newEntries)
 			{
-				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var name);
-				WriteLine($"Worker #{workerNumber + 1}", $"New time: {name} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
+				Caches.PlayerCache.TryGetValue(newEntry.SteamID, out var player);
+				var identity = (player == null || string.IsNullOrEmpty(player.Name)) ? newEntry.SteamID.ToString() : player.Name;
+				WriteLine(source, $"New time: {identity} set their first time on {leaderboard.LevelName}: {newEntry.Score / 1000.0:0.000}s with a rank of {newEntry.GlobalRank}!");
 			}
 		}
 	}

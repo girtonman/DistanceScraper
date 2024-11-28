@@ -18,6 +18,12 @@ namespace DistanceScraper
 		public long TimeCreated { get; set; }
 		public int PersonaStateFlags { get; set; }
 
-		public static PlayerSummary UnknownPlayer { get; } = new PlayerSummary() {Name = "Unknown/Deleted Steam User"};
+		public static PlayerSummary UnknownPlayer
+		{
+			get
+			{
+				return new PlayerSummary() { Name = "Unknown/Deleted Steam User" };
+			}
+		}
 	}
 }
