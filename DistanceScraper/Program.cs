@@ -26,10 +26,10 @@ namespace DistanceScraper
 				new Thread(() => PlayerSummaryThread()).Start();
 
 				// Create several workers so that scanning several thousand leaderboards for their entries doesn't take forever
+				new Thread(() => OfficialLeaderboardThread()).Start();
 				for (var i = 0; i < Settings.Workers; i++)
 				{
 					var workerNumber = i+0;
-					new Thread(() => OfficialLeaderboardThread(workerNumber)).Start();
 					new Thread(() => UnofficialLeaderboardThread(workerNumber)).Start();
 				}
 
@@ -88,14 +88,15 @@ namespace DistanceScraper
 				{
 					Utils.WriteLine(source, $"uh oh: {e.Message}");
 					Utils.WriteLine(source, $"Player scraper sleeping for 2 minutes before trying again.");
+					Thread.Sleep(TimeSpan.FromSeconds(120));
 				}
 				Thread.Sleep(TimeSpan.FromSeconds(10));
 			}
 		}
 
-		public static async void OfficialLeaderboardThread(int workerNumber)
+		public static async void OfficialLeaderboardThread()
 		{
-			var source = $"Worker #{workerNumber+1}";
+			var source = $"Officials";
 			while (true)
 			{
 				try
@@ -104,20 +105,20 @@ namespace DistanceScraper
 					{
 						Utils.WriteLine(source, "Scraping Official Leaderboards");
 					}
-					await scraper.ScrapeOfficialLeaderboardEntries(workerNumber, source);
+					await scraper.ScrapeOfficialLeaderboardEntries(source);
 				}
 				catch (Exception e)
 				{
 					Utils.WriteLine(source, $"uh oh: {e.Message}");
-					Utils.WriteLine(source, $"Worker sleeping for 5 minutes before trying again.");
-					Thread.Sleep(TimeSpan.FromMinutes(5));
+					Utils.WriteLine(source, $"Worker sleeping for 60 seconds before trying again.");
+					Thread.Sleep(TimeSpan.FromSeconds(60));
 				}
 			}
 		}
 		
 		public static async void UnofficialLeaderboardThread(int workerNumber)
 		{
-			var source = $"Worker #{workerNumber+1}";
+			var source = $"Unofficials #{workerNumber+1}";
 			while (true)
 			{
 				try
@@ -131,8 +132,8 @@ namespace DistanceScraper
 				catch (Exception e)
 				{
 					Utils.WriteLine(source, $"uh oh: {e.Message}");
-					Utils.WriteLine(source, $"Worker sleeping for 5 minutes before trying again.");
-					Thread.Sleep(TimeSpan.FromMinutes(5));
+					Utils.WriteLine(source, $"Worker sleeping for 60 seconds before trying again.");
+					Thread.Sleep(TimeSpan.FromSeconds(60));
 				}
 			}
 		}

@@ -72,11 +72,10 @@ namespace DistanceScraper
 		}
 
 		// Scrapes the leaderboard entries for the official maps
-		public async Task ScrapeOfficialLeaderboardEntries(int workerNumber, string source)
+		public async Task ScrapeOfficialLeaderboardEntries(string source)
 		{
 			var leaderboards = await LeaderboardDAL.GetOfficialLeaderboards();
-			var workerLeaderboards = leaderboards.Where(x => x.ID % Settings.Workers == workerNumber).ToList();
-			await ScrapeLeaderboardEntries(workerLeaderboards, workerNumber, source);
+			await ScrapeLeaderboardEntries(leaderboards, source);
 		}
 
 		public async Task ScrapeUnofficialLeaderboardEntries(int workerNumber, string source)
