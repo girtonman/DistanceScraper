@@ -1,4 +1,3 @@
-using DistanceScraper;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
@@ -8,7 +7,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Threading;
 
-namespace DistanceTracker.DALs
+namespace DistanceScraper.DALs
 {
 	public static class SteamAPIDAL
 	{

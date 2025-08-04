@@ -1,5 +1,4 @@
 ﻿using DistanceScraper.DALs;
-using DistanceTracker.DALs;
 using SteamKit2;
 using System.Collections.Generic;
 using System.Linq;
