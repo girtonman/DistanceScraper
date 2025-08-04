@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading;
-using DistanceTracker.DALs;
+using DistanceScraper.DALs;
 
 namespace DistanceScraper
 {
