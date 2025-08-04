@@ -17,8 +17,8 @@ namespace DistanceScraper
 		public long FileSize { get; set; }
 		[JsonProperty("file_url")]
 		public string FileURL { get; set; }
-		public long hcontent_file { get; set; }
-		public long hcontent_preview { get; set; }
+		public ulong hcontent_file { get; set; }
+		public ulong hcontent_preview { get; set; }
 		[JsonProperty("preview_url")]
 		public string PreviewURL { get; set; }
 		public string Title { get; set; }
