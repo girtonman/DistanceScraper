@@ -38,8 +38,11 @@ namespace DistanceScraper.DALs
 
 				var improvement = leaderboard.LevelType == LevelType.Stunt ? ((ulong)updatedEntry.Score - existingEntry.Milliseconds) : (existingEntry.Milliseconds - (ulong)updatedEntry.Score);
 				var rankImprovement = rank - updatedEntry.GlobalRank;
+
 				Caches.PlayerCache.TryGetValue(updatedEntry.SteamID, out var player);
-				player ??= (await SteamAPIDAL.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, source)).First();
+				player ??= (await SteamAPIDAL.GetPlayerSummaries(new List<ulong> { updatedEntry.SteamID }, source)).FirstOrDefault();
+				player ??= PlayerSummary.UnknownPlayer; // Sometimes players just don't exist on steam anymore. This is more likely to happen when filling in a fresh database
+
 				var improvementString = leaderboard.LevelType == LevelType.Stunt ? $"{improvement} eV" : $"{improvement / 1000.0:0.000}s";
 				Utils.WriteLine(source, $"Updated {(leaderboard.LevelType == LevelType.Stunt ? "score" : "time")}: {player.Name} improved on {leaderboard.LevelName}. Improved by {improvementString} and {rankImprovement} ranks ({rank} to {updatedEntry.GlobalRank})!");
 
