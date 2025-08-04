@@ -162,5 +162,19 @@ namespace DistanceScraper
 			new Leaderboard("Variant Blue", LevelType.Challenge, "White Knuckle", true),
 			new Leaderboard("Biotec 4", LevelType.Challenge, "White Knuckle", true),
 		};
+
+		public static readonly List<Leaderboard> StuntLevels = new ()
+		{
+			new Leaderboard("Atrium", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Neon Park", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Stuntware 2051", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Spooky Town", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Quantum Core", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Syncopation", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Fleeting Images", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Canopy", LevelType.Stunt, "Joyride", true),
+			new Leaderboard("Space Skate", LevelType.Stunt, "Legacy Stunt", true),
+			new Leaderboard("Stunt Playground", LevelType.Stunt, "Legacy Stunt", true),
+		};
 	}
 }

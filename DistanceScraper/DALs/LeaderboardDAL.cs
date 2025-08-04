@@ -41,7 +41,7 @@ namespace DistanceScraper.DALs
 			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 
-			var sql = "SELECT ID, LevelName, LeaderboardName, IsOfficial, SteamLeaderboardID FROM Leaderboards WHERE IsOfficial = true ORDER BY ID ASC";
+			var sql = "SELECT ID, LevelName, LeaderboardName, IsOfficial, SteamLeaderboardID, LevelType FROM Leaderboards WHERE IsOfficial = true ORDER BY ID ASC";
 			var command = new MySqlCommand(sql, Connection);
 			var reader = await command.ExecuteReaderAsync();
 
@@ -55,6 +55,7 @@ namespace DistanceScraper.DALs
 					LeaderboardName = reader.GetString(2),
 					IsOfficial = reader.GetBoolean(3),
 					SteamLeaderboardID = reader.IsDBNull(4) ? new uint?() : reader.GetUInt32(4),
+					LevelType = (LevelType) reader.GetInt32(5),
 				});
 			}
 			reader.Close();
@@ -68,7 +69,7 @@ namespace DistanceScraper.DALs
 			var Connection = new MySqlConnection(Settings.ConnectionString);
 			Connection.Open();
 
-			var sql = "SELECT ID, LevelName, LeaderboardName, IsOfficial, SteamLeaderboardID FROM Leaderboards WHERE IsOfficial = false";
+			var sql = "SELECT ID, LevelName, LeaderboardName, IsOfficial, SteamLeaderboardID, LevelType FROM Leaderboards WHERE IsOfficial = false";
 			var command = new MySqlCommand(sql, Connection);
 			var reader = await command.ExecuteReaderAsync();
 
@@ -82,6 +83,7 @@ namespace DistanceScraper.DALs
 					LeaderboardName = reader.GetString(2),
 					IsOfficial = reader.GetBoolean(3),
 					SteamLeaderboardID = reader.IsDBNull(4) ? new uint?() : reader.GetUInt32(4),
+					LevelType = (LevelType) reader.GetInt32(5),
 				});
 			}
 			reader.Close();
