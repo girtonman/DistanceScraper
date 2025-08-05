@@ -1,5 +1,4 @@
 ﻿using DistanceScraper.DALs;
-using DistanceTracker.DALs;
 using SteamKit2;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +12,7 @@ namespace DistanceScraper
 		private LeaderboardEntryDAL LeaderboardEntryDAL { get; set; }
 		private PlayerDAL PlayerDAL { get; set; }
 		private LeaderboardEntryHistoryDAL LeaderboardEntryHistoryDAL { get; set; }
+		private ScraperDAL ScraperDAL { get; set; }
 
 		public LeaderboardScraper(uint AppID)
 		{
@@ -20,6 +20,7 @@ namespace DistanceScraper
 			LeaderboardEntryDAL = new LeaderboardEntryDAL();
 			LeaderboardEntryHistoryDAL = new LeaderboardEntryHistoryDAL();
 			PlayerDAL = new PlayerDAL();
+			ScraperDAL = new ScraperDAL();
 		}
 
 		public async Task ScrapeWorkshopInfo()
@@ -58,15 +59,23 @@ namespace DistanceScraper
 			var leaderboardsToUpdate = existingLeaderboards.Where(x => !x.SteamLeaderboardID.HasValue);
 			foreach (var leaderboardToUpdate in leaderboardsToUpdate)
 			{
-				var leaderboard = await SteamSDKDAL.UserStats.FindLeaderboard(Constants.AppID, leaderboardToUpdate.LeaderboardName);
+				SteamUserStats.FindOrCreateLeaderboardCallback leaderboard;
+				try {
+					leaderboard = await SteamSDKDAL.UserStats.FindLeaderboard(Constants.AppID, leaderboardToUpdate.LeaderboardName);
+				} catch (TaskCanceledException e) {
+					await ScraperDAL.CountAPIFailure("Workshop", $"Request to steam timed out (10s). Failed to retrieve leaderboard info for #{leaderboardToUpdate.ID}: {leaderboardToUpdate.LeaderboardName}");
+					continue;
+				}
+
 				if (leaderboard.Result == EResult.OK && leaderboard.ID != 0)
 				{
-					Utils.WriteLine("Workshop", $"Saving steam leaderboard ID for {leaderboardToUpdate.LevelName} ({leaderboardToUpdate.LeaderboardName})");
+					await ScraperDAL.Pulse("Workshop", $"Saving steam leaderboard ID for {leaderboardToUpdate.LevelName} ({leaderboardToUpdate.LeaderboardName})");
+					await ScraperDAL.CountAPISuccess("Workshop");
 					await dal.UpdateSteamLeaderboardID(leaderboardToUpdate.ID, (uint)leaderboard.ID);
 				}
 				else
 				{
-					Utils.WriteLine("Workshop", $"Failed to get the steam leaderboard ID for {leaderboardToUpdate.LevelName} ({leaderboardToUpdate.LeaderboardName})");
+					await ScraperDAL.CountAPIFailure("Workshop", $"Failed to get the steam leaderboard ID for {leaderboardToUpdate.LevelName} ({leaderboardToUpdate.LeaderboardName})");
 				}
 			}
 		}
@@ -90,22 +99,30 @@ namespace DistanceScraper
 		{
 			foreach (var leaderboard in leaderboards)
 			{
-				if (Settings.Verbose)
-				{
-					Utils.WriteLine(source, $"Processing #{leaderboard.ID}: {leaderboard.LevelName}");
-				}
+				await ScraperDAL.Pulse(source, $"Processing #{leaderboard.ID}: {leaderboard.LevelName}");
 
 				if (leaderboard.SteamLeaderboardID == null)
 				{
 					continue;
 				}
+
 				// Retrieve leaderboards from steam and from the DB
-				var job = await SteamSDKDAL.UserStats.GetLeaderboardEntries(Constants.AppID, (int)leaderboard.SteamLeaderboardID, 0, 99999, ELeaderboardDataRequest.Global);
-				if (job.Result != EResult.OK)
-				{
-					Utils.WriteLine(source, $"Failed to retrieve entries for {leaderboard.LevelName}");
+				SteamUserStats.LeaderboardEntriesCallback job;
+				try {
+					job = await SteamSDKDAL.UserStats.GetLeaderboardEntries(Constants.AppID, (int)leaderboard.SteamLeaderboardID, 0, 99999, ELeaderboardDataRequest.Global);
+				} catch (TaskCanceledException e) {
+					await ScraperDAL.CountAPIFailure(source, $"Request to steam timed out (10s). Failed to retrieve entries for #{leaderboard.ID}: {leaderboard.LevelName}");
 					continue;
 				}
+
+				// Error checking and API result counting
+				if (job.Result != EResult.OK)
+				{
+					await ScraperDAL.CountAPIFailure(source, $"Failed to retrieve entries for #{leaderboard.ID}: {leaderboard.LevelName}");
+					continue;
+				}
+				await ScraperDAL.CountAPISuccess(source);
+
 				var entries = job.Entries;
 				var existingEntries = await LeaderboardEntryDAL.GetLeaderboardEntries(leaderboard.ID);
 

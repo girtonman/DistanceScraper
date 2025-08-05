@@ -1,5 +1,4 @@
-﻿using DistanceTracker.DALs;
-using MySqlConnector;
+﻿using MySqlConnector;
 using SteamKit2;
 using System;
 using System.Collections.Generic;
