@@ -106,8 +106,8 @@ namespace DistanceScraper.DALs
 			// If speed ever becomes an issue, this can be batched instead of executing once per level. Leaving it unbatched for now for easier log based troubleshooting
 			foreach (var level in levels)
 			{
-				var sql = @$"INSERT INTO Leaderboards (LevelName, ImageURL, LeaderboardName, IsOfficial, LevelType, LevelSet) VALUES
-						(@levelName, @imageURL, @leaderboardName, @isOfficial, @levelType, @levelSet) ON DUPLICATE KEY UPDATE ID=ID";
+				var sql = @$"INSERT IGNORE INTO Leaderboards (LevelName, ImageURL, LeaderboardName, IsOfficial, LevelType, LevelSet) VALUES
+						(@levelName, @imageURL, @leaderboardName, @isOfficial, @levelType, @levelSet)";
 				var command = new MySqlCommand(sql, Connection);
 				command.Parameters.AddWithValue("@levelName", level.LevelName);
 				command.Parameters.AddWithValue("@imageURL", $"/images/{level.LevelName}.bytes.png");
@@ -152,8 +152,8 @@ namespace DistanceScraper.DALs
 
 			foreach (var levelType in levelTypes)
 			{
-				var sql = @$"INSERT INTO Leaderboards (LevelName, ImageURL, LeaderboardName, IsOfficial, WorkshopFileID, Tags, LevelType, LevelSet) VALUES
-						(@levelName, @imageURL, @leaderboardName, 0, @workshopFileID, @tags, @levelType, @levelSet) ON DUPLICATE KEY UPDATE ID=ID";
+				var sql = @$"INSERT IGNORE INTO Leaderboards (LevelName, ImageURL, LeaderboardName, IsOfficial, WorkshopFileID, Tags, LevelType, LevelSet) VALUES
+						(@levelName, @imageURL, @leaderboardName, 0, @workshopFileID, @tags, @levelType, @levelSet)";
 
 				var command = new MySqlCommand(sql, Connection);
 				command.Parameters.AddWithValue("@levelName", fileDetail.Title);
