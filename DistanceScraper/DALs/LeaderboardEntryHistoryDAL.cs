@@ -27,7 +27,7 @@ namespace DistanceScraper.DALs
 				// Get existing entry and the rank they held
 				var existingEntry = existingEntries[updatedEntry.SteamID.ConvertToUInt64()];
 				var order = leaderboard.LevelType == LevelType.Stunt ? "DESC" : "ASC";
-				//TODO only query this once (mostly useful during initial scraping)
+				//TODO only query this once instead of per player (optimization mostly useful during initial scraping)
 				var sql = $"SELECT `Rank` FROM (SELECT SteamID, RANK() OVER (ORDER BY Milliseconds {order}) `Rank` FROM LeaderboardEntries WHERE LeaderboardID = {existingEntry.LeaderboardID}) rankings WHERE SteamID = {existingEntry.SteamID};";
 				var command = new MySqlCommand(sql, Connection);
 				var reader = await command.ExecuteReaderAsync();
