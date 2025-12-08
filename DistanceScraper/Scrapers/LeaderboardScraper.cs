@@ -136,6 +136,9 @@ namespace DistanceScraper
 				await LeaderboardEntryDAL.AddLeaderboardEntries(leaderboard, newEntries, source);
 				await LeaderboardEntryHistoryDAL.AddLeaderboardEntryHistory(leaderboard, existingEntries, entriesToUpdate, source);
 				await LeaderboardEntryDAL.UpdateLeaderboardEntries(leaderboard, existingEntries, entriesToUpdate, source);
+
+				// Update last scanned time. No need to await this one.
+				Task.Run(() => LeaderboardDAL.UpdateLastScannedTime(leaderboard.ID));
 			}
 		}
 	}
