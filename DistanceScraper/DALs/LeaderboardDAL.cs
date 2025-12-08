@@ -178,6 +178,16 @@ namespace DistanceScraper.DALs
 			Connection.Close();
 		}
 
+		public void UpdateLastScannedTime(uint leaderboardID)
+		{
+			var Connection = new MySqlConnection(Settings.ConnectionString);
+			Connection.Open();
+			var sql = $"UPDATE Leaderboards SET LastScannedTimeUTC = {DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()} WHERE ID = {leaderboardID}";
+			var command = new MySqlCommand(sql, Connection);
+			command.ExecuteNonQuery();
+			Connection.Close();
+		}
+
 		public async Task<uint> GetMostRecentFileID()
 		{
 			var Connection = new MySqlConnection(Settings.ConnectionString);
