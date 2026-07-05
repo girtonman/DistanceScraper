@@ -5,10 +5,10 @@
 @REM doctl auth init distance
 @REM doctl registry login
 
-docker build distance_scraper:2.0
-docker tag distance_scraper:2.0 registry.digitalocean.com/noodle/distance_scraper:2.0
-docker push registry.digitalocean.com/noodle/distance_scraper:2.0
+docker build distance_scraper:2.2.1
+docker tag distance_scraper:2.2.1 registry.digitalocean.com/noodle/distance_scraper:2.2.1
+docker push registry.digitalocean.com/noodle/distance_scraper:2.2.1
 
 @REM In droplet:
-@REM docker pull registry.digitalocean.com/noodle/distance_scraper:2.0
-@REM docker run -d --name scraper_2_0 registry.digitalocean.com/noodle/distance_scraper:2.0
+@REM docker pull registry.digitalocean.com/noodle/distance_scraper:2.2.1
+@REM docker run -d --name scraper_2_2_1 registry.digitalocean.com/noodle/distance_scraper:2.2.1

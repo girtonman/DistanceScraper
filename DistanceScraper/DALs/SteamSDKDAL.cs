@@ -1,6 +1,8 @@
 ﻿using SteamKit2;
+using SteamKit2.Authentication;
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using static SteamKit2.SteamClient;
 using static SteamKit2.SteamUser;
 
@@ -76,14 +78,23 @@ namespace DistanceScraper
 			Client.Connect();
 		}
 
-		private static void LogOn()
+		private async static void LogOn()
 		{
-			User.LogOn(new LogOnDetails
+			var authSession = await Client.Authentication.BeginAuthSessionViaCredentialsAsync(new AuthSessionDetails
 			{
 				Username = Settings.Username,
 				Password = Settings.Password,
-				AuthCode = null,
-				TwoFactorCode = null,
+				IsPersistentSession = false,
+				Authenticator = new NoSteamGuardAuthenticator(),
+			});
+
+			var pollResponse = await authSession.PollingWaitForResultAsync();
+
+			User.LogOn(new LogOnDetails
+			{
+				Username = pollResponse.AccountName,
+				AccessToken = pollResponse.RefreshToken,
+				ShouldRememberPassword = false,
 			});
 		}
 
@@ -107,6 +118,31 @@ namespace DistanceScraper
 			IsReady = false;
 			Utils.WriteLine("Init", $"Logged off of Steam: {callback.Result}");
 			LogOn();
+		}
+
+		// Husk of an implementation for a steam guard authenticator
+		// Accounts for this scraper should NOT have steam guard enabled
+		private class NoSteamGuardAuthenticator : IAuthenticator
+		{
+			public NoSteamGuardAuthenticator() {}
+
+			public Task<bool> AcceptDeviceConfirmationAsync()
+			{
+				Utils.WriteLine("Init", "This account has steamguard enabled. It must be disabled for the scraper to work");
+				throw new NotImplementedException();
+			}
+
+			public Task<string> GetDeviceCodeAsync(bool previousCodeWasIncorrect)
+			{
+				Utils.WriteLine("Init", "This account has steamguard enabled. It must be disabled for the scraper to work");
+				throw new NotImplementedException();
+			}
+
+			public Task<string> GetEmailCodeAsync(string email, bool previousCodeWasIncorrect)
+			{
+				Utils.WriteLine("Init", "This account has steamguard enabled. It must be disabled for the scraper to work");
+				throw new NotImplementedException();
+			}
 		}
 	}
 }

@@ -85,6 +85,7 @@ namespace DistanceScraper
 					await players.ScrapePlayerSummaries();
 
 					await status.Finish(source, "Player scanning finished. Sleeping for 10 seconds");
+					Thread.Sleep(TimeSpan.FromSeconds(10));
 				}
 				catch(Exception e)
 				{
@@ -92,7 +93,6 @@ namespace DistanceScraper
 					await status.Pulse(source, "Player scraper sleeping for 2 minutes before trying again");
 					Thread.Sleep(TimeSpan.FromMinutes(2));
 				}
-				Thread.Sleep(TimeSpan.FromSeconds(10));
 			}
 		}
 
